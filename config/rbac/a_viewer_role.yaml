@@ -1,0 +1,27 @@
+# permissions for end users to view as.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: a-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: par
+    app.kubernetes.io/part-of: par
+    app.kubernetes.io/managed-by: kustomize
+  name: a-viewer-role
+rules:
+- apiGroups:
+  - record.jmcgrath207.github.com
+  resources:
+  - as
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - record.jmcgrath207.github.com
+  resources:
+  - as/status
+  verbs:
+  - get
