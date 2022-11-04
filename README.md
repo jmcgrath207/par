@@ -12,3 +12,9 @@ https://github.com/kubernetes-sigs/kubebuilder/issues/1999
 
 However, you can mutate a Core type via code  with kube builder.
 https://book.kubebuilder.io/reference/webhook-for-core-types.html
+
+
+# Problems.
+
+Need mutation webhook config to code generated/manually create  MutatingWebhookConfiguration
+Figure out how we can convert this to helm.
