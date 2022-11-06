@@ -2,36 +2,31 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"github.com/snorwin/k8s-generic-webhook/pkg/webhook"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/json"
-	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-type PodDNSInjector struct {
-	Client  client.Client
-	decoder *admission.Decoder
+type PodDNSWebhook struct {
+	webhook.MutatingWebhook
 }
 
-func (a *PodDNSInjector) InjectDecoder(d *admission.Decoder) error {
-	a.decoder = d
-	return nil
+func (w *PodDNSWebhook) SetupWebhookWithManager(mgr manager.Manager) error {
+	return webhook.NewGenericWebhookManagedBy(mgr).
+		For(&corev1.Pod{}).
+		Complete(w)
 }
 
-// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,name=mpod.kb.io
-func (a *PodDNSInjector) Handle(ctx context.Context, req admission.Request) admission.Response {
-	pod := &corev1.Pod{}
-	err := a.decoder.Decode(req, pod)
-	if err != nil {
-		return admission.Errored(http.StatusBadRequest, err)
-	}
+func (w *PodDNSWebhook) Mutate(ctx context.Context, request admission.Request, object runtime.Object) admission.Response {
+	_ = log.FromContext(ctx)
 
-	// mutate the fields in pod
+	pod := object.(*corev1.Pod)
+	fmt.Sprint(pod.Spec.AutomountServiceAccountToken)
+	// TODO add your programmatic mutation logic here
 
-	marshaledPod, err := json.Marshal(pod)
-	if err != nil {
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
-	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPod)
+	return admission.Allowed("")
 }

@@ -14,7 +14,16 @@ However, you can mutate a Core type via code  with kube builder.
 https://book.kubebuilder.io/reference/webhook-for-core-types.html
 
 
-# Problems.
+Create cert for local testing.
+mkdir -p /tmp/k8s-webhook-server/serving-certs/
+cd /tmp/k8s-webhook-server/serving-certs/
+openssl req -x509 -newkey  rsa:4096 -nodes -keyout tls.key -out tls.crt -sha256 -days 365
 
-Need mutation webhook config to code generated/manually create  MutatingWebhookConfiguration
-Figure out how we can convert this to helm.
+
+
+## test
+kubectl apply -f test_pod.yaml 
+kubectl delete -f test_pod.yaml
+
+
+# Problems.
