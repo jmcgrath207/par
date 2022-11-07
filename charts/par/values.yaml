@@ -30,3 +30,15 @@ metricsService:
     protocol: TCP
     targetPort: https
   type: ClusterIP
+
+webhook:
+  admissionReviewVersions: ["v1"]
+  servicePath: /dns-hook
+  port: 443
+  failurePolicy: Ignore
+  reinvocationPolicy: Never
+  sideEffects: None
+  timeoutSeconds: 5
+  certificate:
+    regenerate: false
+

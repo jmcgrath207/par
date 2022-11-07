@@ -33,13 +33,22 @@ profiles:
   - name: dev
     deploy:
       helm:
+        hooks:
+          after:
+            - host:
+                command: [ "sh", "-c", "kubectl", "delete", "crds", "as.record.jmcgrath207.github.com" ]
+                os: [ darwin, linux ]
         releases:
           - name: par-dev
             namespace: par-dev
             createNamespace: true
             chartPath: 'charts/par'
-            artifactOverrides:
-              image: par
+            setValueTemplates:
+              controllerManager:
+                manager:
+                  image:
+                    repository: "{{.IMAGE_NAME }}"
+                    tag: "{{.IMAGE_TAG}}"
             overrides:
               log_level: debug
               deploy_type: Deployment

@@ -1,26 +1,26 @@
 {{- $altNames := list ( printf "agent-injector.%s" (.Release.Namespace)) ( printf "agent-injector.%s.svc" (.Release.Namespace)) -}}
 {{- $genCA := genCA "agent-injector-ca" 365 -}}
 {{- $genCert := genSignedCert "agent-injector" nil $altNames 365 $genCA -}}
-{{- $secretData := (lookup "v1" "Secret" (.Release.Namespace) .Values.secret.name).data -}}
+{{- $secretData := (lookup "v1" "Secret" (.Release.Namespace) .Release.Name).data -}}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: {{ .Values.webhook.name }}-{{ .Release.Namespace }}
+  name: {{ .Release.Name }}
   labels:
     {{- include "par.labels" . | nindent 4 }}
 webhooks:
 {{- with .Values.webhook.admissionReviewVersions }}
   - admissionReviewVersions:
-  {{- toYaml . | nindent 2 }}
+  {{- toYaml . | nindent 4 }}
 {{- end }}
     clientConfig:
-{{- if and ($secretData) (not .Values.certificate.regenerate) }}
+{{- if and ($secretData) (not .Values.webhook.certificate.regenerate) }}
       caBundle: {{ or (get $secretData "ca.crt") (get $secretData "ca.pem") }}
 {{- else }}
       caBundle: {{ $genCA.Cert | b64enc }}
 {{- end }}
       service:
-        name: {{ .Values.name }}
+        name: {{ .Release.Name }}
         namespace: {{ .Release.Namespace }}
         path: {{ .Values.webhook.servicePath }}
         port: {{ .Values.webhook.port }}
@@ -37,29 +37,20 @@ webhooks:
         scope: '*'
     failurePolicy: {{ .Values.webhook.failurePolicy }}
     reinvocationPolicy: {{ .Values.webhook.reinvocationPolicy }}
-    name: agent-injector.getambassador.io
+    name: {{ .Release.Name }}.jmcgrath207.github.com
     sideEffects: {{ .Values.webhook.sideEffects }}
     timeoutSeconds: {{ .Values.webhook.timeoutSeconds }}
-{{- if .Values.managerRbac.namespaced }}
-    namespaceSelector:
-      matchExpressions:
-        - key: app.kubernetes.io/name
-          operator: In
-          values:
-{{- range .Values.managerRbac.namespaces }}
-            - {{ . }}
-{{- end }}
-{{- end }}
 ---
+
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ .Values.secret.name }}
+  name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "par.labels" . | nindent 4 }}
 data:
-{{- if and ($secretData) (not .Values.certificate.regenerate) }}
+{{- if and ($secretData) (not .Values.webhook.certificate.regenerate) }}
   ca.crt: {{ or (get $secretData "ca.crt") (get $secretData "ca.pem") }}
   tls.crt: {{ or (get $secretData "tls.crt") (get $secretData "crt.pem") }}
   tls.key: {{ or (get $secretData "tls.key") (get $secretData "key.pem") }}
