@@ -42,3 +42,5 @@ webhook:
   certificate:
     regenerate: false
 
+securityContext:
+  runAsNonRoot: true

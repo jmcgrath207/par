@@ -50,8 +50,8 @@ profiles:
                     repository: "{{.IMAGE_NAME }}"
                     tag: "{{.IMAGE_TAG}}"
             overrides:
-              log_level: debug
-              deploy_type: Deployment
+              securityContext:
+                runAsNonRoot: false
 
     portForward:
       - resourceType: Deployment
