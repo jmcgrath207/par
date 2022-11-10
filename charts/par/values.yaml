@@ -21,6 +21,18 @@ controllerManager:
       requests:
         cpu: 10m
         memory: 64Mi
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: 8081
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8081
+      initialDelaySeconds: 15
+      periodSeconds: 20
   replicas: 1
 kubernetesClusterDomain: cluster.local
 metricsService:
@@ -44,3 +56,4 @@ webhook:
 
 securityContext:
   runAsNonRoot: true
+

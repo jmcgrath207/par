@@ -46,6 +46,8 @@ profiles:
             setValueTemplates:
               controllerManager:
                 manager:
+                  livenessProbe: {}
+                  readinessProbe: {}
                   image:
                     repository: "{{.IMAGE_NAME }}"
                     tag: "{{.IMAGE_TAG}}"

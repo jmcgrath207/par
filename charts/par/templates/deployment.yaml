@@ -71,28 +71,15 @@ spec:
           capabilities:
             drop:
             - ALL
-      - args:
-        - --health-probe-bind-address=:8081
-        - --metrics-bind-address=127.0.0.1:8080
-        - --leader-elect
-        env:
+      - env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ .Values.kubernetesClusterDomain }}
         image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
           | default .Chart.AppVersion }}
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
+        imagePullPolicy: Always
+        livenessProbe: {{- toYaml .Values.controllerManager.manager.livenessProbe | nindent 10 }}
         name: manager
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 8081
-          initialDelaySeconds: 5
-          periodSeconds: 10
+        readinessProbe: {{- toYaml .Values.controllerManager.manager.readinessProbe | nindent 10 }}
         resources: {{- toYaml .Values.controllerManager.manager.resources | nindent 10
           }}
         securityContext:
