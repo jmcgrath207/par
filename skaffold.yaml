@@ -12,6 +12,18 @@ profiles:
   - name: staging
     deploy:
       helm:
+        hooks:
+          before:
+            - host:
+                command: [ "sleep", "20", "&&",  "kubectl", "apply", "-f", "test_pod.yaml" ]
+                os: [ darwin, linux ]
+          after:
+            - host:
+                command: [ "sh", "-c", "kubectl", "delete", "crds", "as.record.jmcgrath207.github.com" ]
+                os: [ darwin, linux ]
+            - host:
+                command: [ "sh", "-c", "kubectl", "delete", "-f", "test_pod.yaml" ]
+                os: [ darwin, linux ]
         releases:
           - name: par-staging
             namespace: par-staging
@@ -23,44 +35,34 @@ profiles:
               log_level: debug
               deploy_type: DaemonSet
 
-    portForward:
-      - resourceType: Deployment
-        resourceName: par
-        namespace: par-staging
-        port: 9100
-        localPort: 9100
 
   - name: dev
     deploy:
       helm:
-        hooks:
-          after:
-            - host:
-                command: [ "sh", "-c", "kubectl", "delete", "crds", "as.record.jmcgrath207.github.com" ]
-                os: [ darwin, linux ]
         releases:
           - name: par-dev
             namespace: par-dev
             createNamespace: true
             chartPath: 'charts/par'
+            # Used for passing environmental variables only
             setValueTemplates:
               controllerManager:
                 manager:
-                  livenessProbe: {}
-                  readinessProbe: {}
                   image:
                     repository: "{{.IMAGE_NAME }}"
                     tag: "{{.IMAGE_TAG}}"
             overrides:
-              securityContext:
-                runAsNonRoot: false
-
+              controllerManager:
+                manager:
+                  enableProbes: false
+                  securityContext:
+                    runAsNonRoot: false
     portForward:
       - resourceType: Deployment
-        resourceName: par
+        resourceName: par-dev-controller-manager
         namespace: par-dev
-        port: 9100
-        localPort: 9100
+        port: 56268
+        localPort: 56268
     patches:
       - op: replace
         path: /build/artifacts/0/docker/dockerfile

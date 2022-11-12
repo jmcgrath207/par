@@ -9,12 +9,12 @@ metadata:
   labels:
     {{- include "par.labels" . | nindent 4 }}
 webhooks:
-{{- with .Values.webhook.admissionReviewVersions }}
+{{- with .Values.controllerManager.manager.webhook.admissionReviewVersions }}
   - admissionReviewVersions:
   {{- toYaml . | nindent 4 }}
 {{- end }}
     clientConfig:
-{{- if and ($secretData) (not .Values.webhook.certificate.regenerate) }}
+{{- if and ($secretData) (not .Values.controllerManager.manager.webhook.certificate.regenerate) }}
       caBundle: {{ or (get $secretData "ca.crt") (get $secretData "ca.pem") }}
 {{- else }}
       caBundle: {{ $genCA.Cert | b64enc }}
@@ -22,8 +22,8 @@ webhooks:
       service:
         name: {{ .Release.Name }}
         namespace: {{ .Release.Namespace }}
-        path: {{ .Values.webhook.servicePath }}
-        port: {{ .Values.webhook.port }}
+        path: {{ .Values.controllerManager.manager.webhook.servicePath }}
+        port: {{ .Values.controllerManager.manager.webhook.port }}
     rules:
       - apiGroups:
           - ""
@@ -35,11 +35,11 @@ webhooks:
         resources:
           - pods
         scope: '*'
-    failurePolicy: {{ .Values.webhook.failurePolicy }}
-    reinvocationPolicy: {{ .Values.webhook.reinvocationPolicy }}
+    failurePolicy: {{ .Values.controllerManager.manager.webhook.failurePolicy }}
+    reinvocationPolicy: {{ .Values.controllerManager.manager.webhook.reinvocationPolicy }}
     name: {{ .Release.Name }}.jmcgrath207.github.com
-    sideEffects: {{ .Values.webhook.sideEffects }}
-    timeoutSeconds: {{ .Values.webhook.timeoutSeconds }}
+    sideEffects: {{ .Values.controllerManager.manager.webhook.sideEffects }}
+    timeoutSeconds: {{ .Values.controllerManager.manager.webhook.timeoutSeconds }}
 ---
 
 apiVersion: v1
@@ -49,8 +49,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "par.labels" . | nindent 4 }}
+type: kubernetes.io/tls
 data:
-{{- if and ($secretData) (not .Values.webhook.certificate.regenerate) }}
+{{- if and ($secretData) (not .Values.controllerManager.manager.webhook.certificate.regenerate) }}
   ca.crt: {{ or (get $secretData "ca.crt") (get $secretData "ca.pem") }}
   tls.crt: {{ or (get $secretData "tls.crt") (get $secretData "crt.pem") }}
   tls.key: {{ or (get $secretData "tls.key") (get $secretData "key.pem") }}

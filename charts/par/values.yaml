@@ -33,7 +33,21 @@ controllerManager:
         port: 8081
       initialDelaySeconds: 15
       periodSeconds: 20
+    enableProbes: true
+    webhook:
+      admissionReviewVersions: ["v1"]
+      servicePath: /dns-hook
+      port: 443
+      failurePolicy: Ignore
+      reinvocationPolicy: Never
+      sideEffects: None
+      timeoutSeconds: 5
+      certificate:
+        regenerate: false
+    securityContext:
+      runAsNonRoot: true
   replicas: 1
+
 kubernetesClusterDomain: cluster.local
 metricsService:
   ports:
@@ -43,17 +57,4 @@ metricsService:
     targetPort: https
   type: ClusterIP
 
-webhook:
-  admissionReviewVersions: ["v1"]
-  servicePath: /dns-hook
-  port: 443
-  failurePolicy: Ignore
-  reinvocationPolicy: Never
-  sideEffects: None
-  timeoutSeconds: 5
-  certificate:
-    regenerate: false
-
-securityContext:
-  runAsNonRoot: true
 

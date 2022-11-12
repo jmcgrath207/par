@@ -57,15 +57,13 @@ spec:
         env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ .Values.kubernetesClusterDomain }}
-        image: {{ .Values.controllerManager.kubeRbacProxy.image.repository }}:{{ .Values.controllerManager.kubeRbacProxy.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.controllerManager.kubeRbacProxy.image.repository }}:{{ .Values.controllerManager.kubeRbacProxy.image.tag | default .Chart.AppVersion }}
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443
           name: https
           protocol: TCP
-        resources: {{- toYaml .Values.controllerManager.kubeRbacProxy.resources | nindent
-          10 }}
+        resources: {{- toYaml .Values.controllerManager.kubeRbacProxy.resources | nindent 10 }}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -74,12 +72,13 @@ spec:
       - env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ .Values.kubernetesClusterDomain }}
-        image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
-          | default .Chart.AppVersion }}
+        image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: Always
-        livenessProbe: {{- toYaml .Values.controllerManager.manager.livenessProbe | nindent 10 }}
         name: manager
+        {{- if .Values.controllerManager.manager.enableProbes }}
+        livenessProbe: {{- toYaml .Values.controllerManager.manager.livenessProbe | nindent 10 }}
         readinessProbe: {{- toYaml .Values.controllerManager.manager.readinessProbe | nindent 10 }}
+        {{- end }}
         resources: {{- toYaml .Values.controllerManager.manager.resources | nindent 10
           }}
         securityContext:
@@ -87,7 +86,21 @@ spec:
           capabilities:
             drop:
             - ALL
+        volumeMounts:
+          - name: tls
+            mountPath: /tmp/k8s-webhook-server/serving-certs/tls.key
+            readOnly: true
+            subPath: tls.key
+          - name: tls
+            mountPath: /tmp/k8s-webhook-server/serving-certs/tls.crt
+            readOnly: true
+            subPath: tls.crt
       securityContext:
-        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        runAsNonRoot: {{ .Values.controllerManager.manager.securityContext.runAsNonRoot }}
+      volumes:
+        - name: tls
+          secret:
+            defaultMode: 420
+            secretName: {{ .Release.Name }}
       serviceAccountName: {{ include "par.fullname" . }}-controller-manager
       terminationGracePeriodSeconds: 10
