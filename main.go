@@ -106,7 +106,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controllers.DynamicWebHooks{}).SetupWithManager(mgr); err != nil {
+	if err := (&controllers.WebHookManager{}).InitWebhooks(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
 		os.Exit(1)
 	}

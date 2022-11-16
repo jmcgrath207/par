@@ -15,6 +15,7 @@ https://book.kubebuilder.io/reference/webhook-for-core-types.html
 
 
 Create cert for local testing.
+
 mkdir -p /tmp/k8s-webhook-server/serving-certs/
 cd /tmp/k8s-webhook-server/serving-certs/
 openssl req -x509 -newkey  rsa:4096 -nodes -keyout tls.key -out tls.crt -sha256 -days 365

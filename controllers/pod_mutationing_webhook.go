@@ -1,17 +1,35 @@
 package controllers
 
 import (
-	admissionregv1 "k8s.io/api/admissionregistration/v1"
+	"context"
+	corev1 "k8s.io/api/core/v1"
+	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-type DynamicWebHooks struct {
-	mgr        manager.Manager
-	hookServer *webhook.Server
-	decoder    *admission.Decoder
+type WebHookManager struct {
+	mgr manager.Manager
+}
+
+// TODO: kubebuilder is not generate this manifest when make manifest is ran.
+// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,name=a.par.jmcgrath207.github.com
+func (w *WebHookManager) createWebhooks() {
+
+	w.mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodDnsUpdater{Client: w.mgr.GetClient()}})
+
+}
+
+func (w *WebHookManager) deleteWebhook() {}
+
+func (w *WebHookManager) InitWebhooks(mgr manager.Manager) error {
+	w.mgr = mgr
+	w.createWebhooks()
+	//defer w.deleteWebhook()
+
+	return nil
 }
 
 type PodDnsUpdater struct {
@@ -19,25 +37,11 @@ type PodDnsUpdater struct {
 	decoder *admission.Decoder
 }
 
-func (d *DynamicWebHooks) SetupWithManager(mgr manager.Manager) error {
-	d.mgr = mgr
-	d.hookServer = mgr.GetWebhookServer()
-	return nil
-}
-func (d *DynamicWebHooks) createWebhook() {
-	//# https://pkg.go.dev/k8s.io/kubernetes/pkg/apis/admissionregistration#MutatingWebhook
-	// create mutating webhook spec
-	//mutatingWebhookConfig := admissionregv1.MutatingWebhook{}
-
-	hookServer.Register("/mutate-v1-pod", &webhook.Admission{Handler: &podAnnotator{Client: mgr.GetClient()}})
-	d.hookServer.Register()
-
-}
-
-func (d *DynamicWebHooks) deleteWebhook() {}
-
-func (d *DynamicWebHooks) initWebhook() {
-	d.createWebhook()
-	defer d.deleteWebhook()
-	PodPatch{}.patch()
+func (p PodDnsUpdater) Handle(ctx context.Context, request admission.Request) admission.Response {
+	pod := &corev1.Pod{}
+	err := p.decoder.Decode(request, pod)
+	if err != nil {
+		return admission.Errored(http.StatusBadRequest, err)
+	}
+	panic("implement me")
 }
