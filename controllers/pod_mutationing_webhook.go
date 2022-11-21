@@ -7,7 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"net/http"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -15,15 +14,11 @@ import (
 )
 
 type WebHookManager struct {
-	mgr       manager.Manager
-	namespace string
+	Mgr             manager.Manager
+	CurrentWebHooks []client.Object
 }
 
 func strPtr(s string) *string { return &s }
-
-func getEnv(key string) string {
-	return value
-}
 
 // TODO: Working on Mutating hook logic
 func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service) admissionregistrationv1.MutatingWebhook {
@@ -44,9 +39,9 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 				Namespace: service.Namespace,
 				Name:      service.Name,
 				Path:      strPtr("/always-deny"),
-				Port:      pointer.Int32(servicePort),
+				Port:      pointer.Int32(9999),
 			},
-			CABundle: w.mgr.GetConfig().CAData,
+			CABundle: w.Mgr.GetConfig().CAData,
 		},
 		// network failures while the service network routing is being set up should be ignored by the marker
 		FailurePolicy:           &failOpen,
@@ -63,36 +58,31 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 	}
 }
 
-func (w *WebHookManager) createWebhooks() {
+func (w *WebHookManager) CreateWebhooks(namespace string) {
 
-	mutatingWebhookService := corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "par-webhook", Namespace: w.mgr.GetCache().Get()}}
+	mutatingWebhookService := corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "par-webhook", Namespace: namespace}}
 
 	mutatingWebhook := &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: "par-webhook"},
-
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
 			w.newMutatingIsReadyWebhookFixture(mutatingWebhookService),
 		},
 	}
 
-	err := w.mgr.GetClient().Create(context.Background(), mutatingWebhook)
+	err := w.Mgr.GetClient().Create(context.Background(), mutatingWebhook)
 	if err != nil {
 		return
 	}
+	// Track Current webhooks for clean up
+	w.CurrentWebHooks = append(w.CurrentWebHooks, mutatingWebhook)
 
-	w.mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodDnsUpdater{Client: w.mgr.GetClient()}})
+	w.Mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodDnsUpdater{Client: w.Mgr.GetClient()}})
 
 }
 
-func (w *WebHookManager) deleteWebhook() {}
+func (w *WebHookManager) DeleteWebhook() {
+	//	iterate current webhooks and delete the objects
 
-func (w *WebHookManager) InitWebhooks(mgr manager.Manager) error {
-	w.mgr = mgr
-	w.namespace, _ = os.LookupEnv("CURRENT_NAMESPACE")
-	w.createWebhooks()
-	//defer w.deleteWebhook()
-
-	return nil
 }
 
 type PodDnsUpdater struct {

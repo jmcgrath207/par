@@ -50,9 +50,7 @@ func (r *AReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Res
 	_ = log.FromContext(ctx)
 
 	// TODO: pass namespace of the pod to look for to initWebhook
-	DynamicWebHooks.initWebhook()
 	// TODO: pass what pods to patch with DNS information from the A record Kind.
-	PodPatch.patch()
 
 	return ctrl.Result{}, nil
 }

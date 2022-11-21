@@ -106,10 +106,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controllers.WebHookManager{}).InitWebhooks(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
-		os.Exit(1)
-	}
+	manager := controllers.WebHookManager{Mgr: mgr}
+	defer manager.DeleteWebhook()
+	namespace, _ := os.LookupEnv("CURRENT_NAMESPACE")
+	manager.CreateWebhooks(namespace)
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
