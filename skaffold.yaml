@@ -39,6 +39,18 @@ profiles:
   - name: dev
     deploy:
       helm:
+#        hooks:
+#          before:
+#            - host:
+#                command: [  "sh", "-c", "sleep", "20", "&&",  "kubectl", "apply", "--filename", "test_pod.yaml" ]
+#                os: [ darwin, linux ]
+#          after:
+#            - host:
+#                command: [ "sh", "-c", "kubectl", "delete", "crds", "as.record.jmcgrath207.github.com" ]
+#                os: [ darwin, linux ]
+#            - host:
+#                command: [ "sh", "-c", "kubectl", "delete", "--filename" , "test_pod.yaml" ]
+#                os: [ darwin, linux ]
         releases:
           - name: par-dev
             namespace: par-dev

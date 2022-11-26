@@ -69,6 +69,9 @@ func (w *WebHookManager) CreateWebhooks(namespace string) {
 		},
 	}
 
+	// TODO: Fix issue with Rbac So mutating Webhook can be created.
+	// mutatingwebhookconfigurations.admissionregistration.k8s.io is forbidden: User "system:serviceaccount:par-dev:par-dev-controller-manager"
+	// cannot create resource "mutatingwebhookconfigurations" in API group "admissionregistration.k8s.io" at the cluster scope
 	err := w.Mgr.GetClient().Create(context.Background(), mutatingWebhook)
 	if err != nil {
 		return
@@ -81,6 +84,7 @@ func (w *WebHookManager) CreateWebhooks(namespace string) {
 }
 
 func (w *WebHookManager) DeleteWebhook() {
+	// TODO: Delete webhook manifest objects
 	//	iterate current webhooks and delete the objects
 
 }
