@@ -4,6 +4,7 @@ import (
 	"context"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"net/http"
@@ -20,7 +21,6 @@ type WebHookManager struct {
 
 func strPtr(s string) *string { return &s }
 
-// TODO: Working on Mutating hook logic
 func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service) admissionregistrationv1.MutatingWebhook {
 	sideEffectsNone := admissionregistrationv1.SideEffectClassNone
 	failOpen := admissionregistrationv1.Ignore
@@ -31,14 +31,14 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{""},
 				APIVersions: []string{"v1"},
-				Resources:   []string{"configmaps"},
+				Resources:   []string{"configmaps"}, //TODO Should this be pods?
 			},
 		}},
 		ClientConfig: admissionregistrationv1.WebhookClientConfig{
 			Service: &admissionregistrationv1.ServiceReference{
 				Namespace: service.Namespace,
 				Name:      service.Name,
-				Path:      strPtr("/always-deny"),
+				Path:      strPtr("/mutate-v1-pod-par-dev"),
 				Port:      pointer.Int32(9999),
 			},
 			CABundle: w.Mgr.GetConfig().CAData,
@@ -60,8 +60,10 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 
 func (w *WebHookManager) CreateWebhooks(namespace string) {
 
+	// TODO make sure ports matches webhook
 	mutatingWebhookService := corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "par-webhook", Namespace: namespace}}
 
+	// Pass service port to mutating webhook creation
 	mutatingWebhook := &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: "par-webhook"},
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
@@ -69,17 +71,23 @@ func (w *WebHookManager) CreateWebhooks(namespace string) {
 		},
 	}
 
-	// TODO: Fix issue with Rbac So mutating Webhook can be created.
-	// mutatingwebhookconfigurations.admissionregistration.k8s.io is forbidden: User "system:serviceaccount:par-dev:par-dev-controller-manager"
-	// cannot create resource "mutatingwebhookconfigurations" in API group "admissionregistration.k8s.io" at the cluster scope
 	err := w.Mgr.GetClient().Create(context.Background(), mutatingWebhook)
 	if err != nil {
-		return
+		if errors.IsAlreadyExists(err) {
+			err := w.Mgr.GetClient().Update(context.Background(), mutatingWebhook)
+			// TODO: having issue doing a update if object fails to create.
+			// mutatingwebhookconfigurations.admissionregistration.k8s.io "par-webhook" is invalid: metadata.resourceVersion: Invalid value: 0x0: must be specified for an update
+			if err != nil {
+				panic(err)
+			}
+		}
+		panic(err)
 	}
+
 	// Track Current webhooks for clean up
 	w.CurrentWebHooks = append(w.CurrentWebHooks, mutatingWebhook)
 
-	w.Mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodDnsUpdater{Client: w.Mgr.GetClient()}})
+	w.Mgr.GetWebhookServer().Register(mutatingWebhook.Webhooks[0].ClientConfig.Service.Path, &webhook.Admission{Handler: &PodDnsUpdater{Client: w.Mgr.GetClient()}})
 
 }
 
@@ -92,6 +100,11 @@ func (w *WebHookManager) DeleteWebhook() {
 type PodDnsUpdater struct {
 	Client  client.Client
 	decoder *admission.Decoder
+}
+
+func (p *PodDnsUpdater) InjectDecoder(d *admission.Decoder) error {
+	p.decoder = d
+	return nil
 }
 
 func (p PodDnsUpdater) Handle(ctx context.Context, request admission.Request) admission.Response {
