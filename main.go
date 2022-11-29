@@ -106,8 +106,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	manager := controllers.WebHookManager{Mgr: mgr}
-	defer manager.DeleteWebhook()
+	manager := controllers.WebHookManager{Mgr: mgr, Client: mgr.GetClient()}
+	//defer manager.DeleteWebhook() // TODO: Determine if needed
 	namespace, _ := os.LookupEnv("CURRENT_NAMESPACE")
 	manager.CreateWebhooks(namespace)
 

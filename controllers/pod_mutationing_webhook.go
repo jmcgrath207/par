@@ -16,7 +16,8 @@ import (
 
 type WebHookManager struct {
 	Mgr             manager.Manager
-	CurrentWebHooks []client.Object
+	CurrentWebHooks []client.Object //TODO: add dict to array to contain all object, ex service and webhook
+	Client          client.Client
 }
 
 func strPtr(s string) *string { return &s }
@@ -39,7 +40,7 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 				Namespace: service.Namespace,
 				Name:      service.Name,
 				Path:      strPtr("/mutate-v1-pod-par-dev"),
-				Port:      pointer.Int32(9999),
+				Port:      pointer.Int32(9999), // TODO make sure ports matches webhook
 			},
 			CABundle: w.Mgr.GetConfig().CAData,
 		},
@@ -58,10 +59,7 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 	}
 }
 
-func (w *WebHookManager) CreateWebhooks(namespace string) {
-
-	// TODO make sure ports matches webhook
-	mutatingWebhookService := corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "par-webhook", Namespace: namespace}}
+func (w *WebHookManager) CreateMutatingWebHook(mutatingWebhookService corev1.Service) {
 
 	// Pass service port to mutating webhook creation
 	mutatingWebhook := &admissionregistrationv1.MutatingWebhookConfiguration{
@@ -71,31 +69,63 @@ func (w *WebHookManager) CreateWebhooks(namespace string) {
 		},
 	}
 
-	err := w.Mgr.GetClient().Create(context.Background(), mutatingWebhook)
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			err := w.Mgr.GetClient().Update(context.Background(), mutatingWebhook)
-			// TODO: having issue doing a update if object fails to create.
-			// mutatingwebhookconfigurations.admissionregistration.k8s.io "par-webhook" is invalid: metadata.resourceVersion: Invalid value: 0x0: must be specified for an update
-			if err != nil {
-				panic(err)
-			}
+	err := w.Client.Create(context.Background(), mutatingWebhook)
+	if errors.IsAlreadyExists(err) {
+		// Delete and Recreate Mutating Webhook
+		err := w.Client.Delete(context.Background(), mutatingWebhook)
+		if err != nil {
+			panic(err)
 		}
+
+		err = w.Client.Create(context.Background(), mutatingWebhook)
+		if err != nil {
+			panic(err)
+		}
+
+	} else if err != nil {
 		panic(err)
 	}
 
 	// Track Current webhooks for clean up
 	w.CurrentWebHooks = append(w.CurrentWebHooks, mutatingWebhook)
 
-	w.Mgr.GetWebhookServer().Register(mutatingWebhook.Webhooks[0].ClientConfig.Service.Path, &webhook.Admission{Handler: &PodDnsUpdater{Client: w.Mgr.GetClient()}})
+	w.Mgr.GetWebhookServer().Register(*mutatingWebhook.Webhooks[0].ClientConfig.Service.Path, &webhook.Admission{Handler: &PodDnsUpdater{Client: w.Mgr.GetClient()}})
 
 }
 
-func (w *WebHookManager) DeleteWebhook() {
-	// TODO: Delete webhook manifest objects
-	//	iterate current webhooks and delete the objects
+func (w *WebHookManager) CreateService(namespace string) corev1.Service {
 
+	mutatingWebhookService := corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "par-webhook-admissions", Namespace: namespace}}
+	err := w.Client.Create(context.Background(), &mutatingWebhookService)
+	if errors.IsAlreadyExists(err) {
+		// Delete and Recreate Mutating Webhook
+		err := w.Client.Delete(context.Background(), &mutatingWebhookService)
+		if err != nil {
+			panic(err)
+		}
+
+		err = w.Client.Create(context.Background(), &mutatingWebhookService)
+		if err != nil {
+			panic(err)
+		}
+
+	} else if err != nil {
+		panic(err)
+	}
+	return mutatingWebhookService
 }
+
+func (w *WebHookManager) CreateWebhooks(namespace string) {
+
+	service := w.CreateService(namespace)
+	w.CreateMutatingWebHook(service)
+}
+
+//func (w *WebHookManager) DeleteWebhook() {
+//	// TODO: Delete webhook manifest objects
+//	//	iterate current webhooks and delete the objects
+//
+//}
 
 type PodDnsUpdater struct {
 	Client  client.Client
