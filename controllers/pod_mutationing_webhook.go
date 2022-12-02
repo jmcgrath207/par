@@ -32,7 +32,7 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{""},
 				APIVersions: []string{"v1"},
-				Resources:   []string{"configmaps"}, //TODO Should this be pods?
+				Resources:   []string{"pods"},
 			},
 		}},
 		ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -59,13 +59,13 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 	}
 }
 
-func (w *WebHookManager) CreateMutatingWebHook(mutatingWebhookService corev1.Service) {
+func (w *WebHookManager) CreateMutatingWebHook(service *corev1.Service) {
 
 	// Pass service port to mutating webhook creation
 	mutatingWebhook := &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: "par-webhook"},
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
-			w.newMutatingIsReadyWebhookFixture(mutatingWebhookService),
+			w.newMutatingIsReadyWebhookFixture(*service),
 		},
 	}
 
@@ -93,18 +93,39 @@ func (w *WebHookManager) CreateMutatingWebHook(mutatingWebhookService corev1.Ser
 
 }
 
-func (w *WebHookManager) CreateService(namespace string) corev1.Service {
+func (w *WebHookManager) CreateService(namespace string) *corev1.Service {
 
-	mutatingWebhookService := corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "par-webhook-admissions", Namespace: namespace}}
-	err := w.Client.Create(context.Background(), &mutatingWebhookService)
+	port := corev1.ServicePort{}
+	port.Port = 8443
+	ports := make(corev1.ServicePort, 1)
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "par-webhook-admissions",
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/instance": "par",
+				"app.kubernetes.io/name":     "par",
+				"control-plane":              "controller-manager",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports:    ports, // TODO working on adding ports array
+			Selector: nil,
+			//ClusterIP:                "",
+
+		},
+	}
+
+	err := w.Client.Create(context.Background(), service)
 	if errors.IsAlreadyExists(err) {
-		// Delete and Recreate Mutating Webhook
-		err := w.Client.Delete(context.Background(), &mutatingWebhookService)
+		// Delete and Recreate Mutating Webhook Service
+		err := w.Client.Delete(context.Background(), service)
 		if err != nil {
 			panic(err)
 		}
 
-		err = w.Client.Create(context.Background(), &mutatingWebhookService)
+		err = w.Client.Create(context.Background(), service)
 		if err != nil {
 			panic(err)
 		}
@@ -112,7 +133,7 @@ func (w *WebHookManager) CreateService(namespace string) corev1.Service {
 	} else if err != nil {
 		panic(err)
 	}
-	return mutatingWebhookService
+	return service
 }
 
 func (w *WebHookManager) CreateWebhooks(namespace string) {
