@@ -52,7 +52,7 @@ profiles:
 #                command: [ "sh", "-c", "kubectl", "delete", "--filename" , "test_pod.yaml" ]
 #                os: [ darwin, linux ]
         releases:
-          - name: par
+          - name: par-dev
             namespace: par-dev
             createNamespace: true
             chartPath: 'charts/par'

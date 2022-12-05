@@ -6,6 +6,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,7 +41,7 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 				Namespace: service.Namespace,
 				Name:      service.Name,
 				Path:      strPtr("/mutate-v1-pod-par-dev"),
-				Port:      pointer.Int32(9999), // TODO make sure ports matches webhook
+				Port:      pointer.Int32(service.Spec.Ports[0].Port),
 			},
 			CABundle: w.Mgr.GetConfig().CAData,
 		},
@@ -93,27 +94,34 @@ func (w *WebHookManager) CreateMutatingWebHook(service *corev1.Service) {
 
 }
 
-func (w *WebHookManager) CreateService(namespace string) *corev1.Service {
+func GetLabels() map[string]string {
 
-	port := corev1.ServicePort{}
-	port.Port = 8443
-	ports := make(corev1.ServicePort, 1)
+	return map[string]string{
+		"app.kubernetes.io/instance": "par",
+		"app.kubernetes.io/name":     "par",
+		"control-plane":              "controller-manager",
+	}
+
+}
+
+func (w *WebHookManager) CreateService(namespace string) *corev1.Service {
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "par-webhook-admissions",
+			Name:      "par-webhook",
 			Namespace: namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/instance": "par",
-				"app.kubernetes.io/name":     "par",
-				"control-plane":              "controller-manager",
-			},
+			Labels:    GetLabels(),
 		},
 		Spec: corev1.ServiceSpec{
-			Ports:    ports, // TODO working on adding ports array
-			Selector: nil,
-			//ClusterIP:                "",
-
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "webhook",
+					Port:       8443,
+					TargetPort: intstr.FromInt(8443),
+					Protocol:   "TCP",
+				},
+			},
+			Selector: GetLabels(),
 		},
 	}
 
@@ -159,6 +167,7 @@ func (p *PodDnsUpdater) InjectDecoder(d *admission.Decoder) error {
 }
 
 func (p PodDnsUpdater) Handle(ctx context.Context, request admission.Request) admission.Response {
+	// TODO: handle not picking up when pod oject is applied.
 	pod := &corev1.Pod{}
 	err := p.decoder.Decode(request, pod)
 	if err != nil {
