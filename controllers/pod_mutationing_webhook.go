@@ -15,9 +15,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
+type webhookConfig struct {
+	webhook admissionregistrationv1.MutatingWebhookConfiguration
+	service corev1.Service
+}
+
 type WebHookManager struct {
 	Mgr             manager.Manager
-	CurrentWebHooks []client.Object //TODO: add dict to array to contain all object, ex service and webhook
+	CurrentWebHooks []webhookConfig
 	Client          client.Client
 }
 
@@ -60,7 +65,7 @@ func (w *WebHookManager) newMutatingIsReadyWebhookFixture(service corev1.Service
 	}
 }
 
-func (w *WebHookManager) CreateMutatingWebHook(service *corev1.Service) {
+func (w *WebHookManager) CreateMutatingWebHook(service *corev1.Service) *admissionregistrationv1.MutatingWebhookConfiguration {
 
 	// Pass service port to mutating webhook creation
 	mutatingWebhook := &admissionregistrationv1.MutatingWebhookConfiguration{
@@ -87,11 +92,9 @@ func (w *WebHookManager) CreateMutatingWebHook(service *corev1.Service) {
 		panic(err)
 	}
 
-	// Track Current webhooks for clean up
-	w.CurrentWebHooks = append(w.CurrentWebHooks, mutatingWebhook)
-
 	w.Mgr.GetWebhookServer().Register(*mutatingWebhook.Webhooks[0].ClientConfig.Service.Path, &webhook.Admission{Handler: &PodDnsUpdater{Client: w.Mgr.GetClient()}})
 
+	return mutatingWebhook
 }
 
 func GetLabels() map[string]string {
@@ -147,7 +150,11 @@ func (w *WebHookManager) CreateService(namespace string) *corev1.Service {
 func (w *WebHookManager) CreateWebhooks(namespace string) {
 
 	service := w.CreateService(namespace)
-	w.CreateMutatingWebHook(service)
+	mutatingwebhook := w.CreateMutatingWebHook(service)
+	w.CurrentWebHooks = append(w.CurrentWebHooks, webhookConfig{
+		webhook: *mutatingwebhook,
+		service: *service,
+	})
 }
 
 //func (w *WebHookManager) DeleteWebhook() {
