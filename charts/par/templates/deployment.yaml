@@ -32,7 +32,6 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
-      serviceAccountName: {{ include "par.fullname" . }}-controller-manager
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -73,6 +72,8 @@ spec:
       - env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ .Values.kubernetesClusterDomain }}
+        - name: WEBHOOK_NAME
+          value: {{ .Release.Name }}-webhook
         - name: CURRENT_NAMESPACE
           valueFrom:
             fieldRef:
@@ -91,6 +92,21 @@ spec:
           capabilities:
             drop:
             - ALL
+        volumeMounts:
+          - name: tls
+            mountPath: /tmp/k8s-webhook-server/serving-certs/tls.key
+            readOnly: true
+            subPath: tls.key
+          - name: tls
+            mountPath: /tmp/k8s-webhook-server/serving-certs/tls.crt
+            readOnly: true
+            subPath: tls.crt
       securityContext:
         runAsNonRoot: {{ .Values.controllerManager.manager.securityContext.runAsNonRoot }}
+      volumes:
+        - name: tls
+          secret:
+            defaultMode: 420
+            secretName: {{ .Release.Name }}
+      serviceAccountName: {{ include "par.fullname" . }}-controller-manager
       terminationGracePeriodSeconds: 10
