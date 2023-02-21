@@ -26,7 +26,7 @@ import (
 // ASpec defines the desired state of A
 type ASpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Important: Run "Make" to regenerate code after modifying this file
 
 	// Foo is an example field of A. Edit a_types.go to remove/update
 	Foo string `json:"foo,omitempty"`
@@ -35,7 +35,7 @@ type ASpec struct {
 // AStatus defines the observed state of A
 type AStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Important: Run "Make" to regenerate code after modifying this file
 }
 
 //+kubebuilder:object:root=true
