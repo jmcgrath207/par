@@ -14,6 +14,7 @@ controllerManager:
     image:
       repository: controller
       tag: latest
+      imagePullPolicy: Always
     resources:
       limits:
         cpu: 500m

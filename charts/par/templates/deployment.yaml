@@ -79,7 +79,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag | default .Chart.AppVersion }}
-        imagePullPolicy: Always
+        imagePullPolicy: {{ .Values.controllerManager.manager.image.imagePullPolicy }}
         name: manager
         {{- if .Values.controllerManager.manager.enableProbes }}
         livenessProbe: {{- toYaml .Values.controllerManager.manager.livenessProbe | nindent 10 }}
