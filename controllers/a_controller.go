@@ -23,8 +23,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	recordv1alpha1 "github.com/jmcgrath207/par/api/v1alpha1"
 )
 
 // AReconciler reconciles a A object

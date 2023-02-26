@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	recordv1alpha1 "github.com/jmcgrath207/par/api/v1alpha1"
 	"github.com/jmcgrath207/par/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -43,8 +42,6 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(recordv1alpha1.AddToScheme(scheme))
-	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
