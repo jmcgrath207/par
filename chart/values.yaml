@@ -12,8 +12,8 @@ controllerManager:
         memory: 64Mi
   manager:
     image:
-      repository: controller
-      tag: latest
+      repository: local.io/library/par
+      tag: debug-latest
     resources:
       limits:
         cpu: 500m

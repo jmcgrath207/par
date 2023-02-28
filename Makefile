@@ -157,12 +157,27 @@ envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-
+### HELMIFY COMMMANDS ###
 
 .PHONY: helmify
 helmify: $(HELMIFY) ## Download helmify locally if necessary.
 $(HELMIFY): $(LOCALBIN)
 	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@latest
 
-helm: manifests kustomize helmify
-	$(KUSTOMIZE) build config/default | $(HELMIFY)
+
+IMAGE ?= local.io/local/par:debug-latest
+
+debug_deploy: manifests kustomize helmify
+	podman build  --no-cache -f DockerfileDebug -t ${IMAGE} .
+	minikube image load "${IMAGE}"
+	helm upgrade --install par ./chart --install --set controllerManager.manager.image.repository="local/par" \
+										   --set controllerManager.manager.image.tag="debug-latest" \
+										   --create-namespace \
+										   --namespace par
+	kubectl patch deployments.apps -n par par-chart-controller-manager -p \
+	'{"spec": {"template": {"spec":{"containers":[{"name":"manager","imagePullPolicy":"Never", "livenessProbe": null, "readinessProbe": null,  "securityContext" : {"runAsNonRoot" : false} }]}}}}'
+	kubectl port-forward --address=0.0.0.0 -n par deployments/par-chart-controller-manager 56268:56268
+
+
+debug_destroy:
+	helm uninstall par -n par

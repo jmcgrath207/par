@@ -1,2 +1,10 @@
 resources:
 - manager.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: controller
+  newName: local.io/library/par
+  newTag: debug-latest
+- name: local/local/par
+  newTag: debug-latest
