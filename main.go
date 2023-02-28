@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2023.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,123 +17,93 @@ limitations under the License.
 package main
 
 import (
-	"context"
-	"math/rand"
+	"flag"
 	"os"
-	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
 	"k8s.io/apimachinery/pkg/runtime"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	api "sigs.k8s.io/controller-runtime/examples/crd/pkg"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	dnsv1 "github.com/jmcgrath207/par/api/v1"
+	"github.com/jmcgrath207/par/controllers"
+	//+kubebuilder:scaffold:imports
 )
 
 var (
+	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
-type reconciler struct {
-	client.Client
-	scheme *runtime.Scheme
-}
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx).WithValues("chaospod", req.NamespacedName)
-	log.V(1).Info("reconciling chaos pod")
-
-	var chaospod api.ChaosPod
-	if err := r.Get(ctx, req.NamespacedName, &chaospod); err != nil {
-		log.Error(err, "unable to get chaosctl")
-		return ctrl.Result{}, err
-	}
-
-	var pod corev1.Pod
-	podFound := true
-	if err := r.Get(ctx, req.NamespacedName, &pod); err != nil {
-		if !apierrors.IsNotFound(err) {
-			log.Error(err, "unable to get pod")
-			return ctrl.Result{}, err
-		}
-		podFound = false
-	}
-
-	if podFound {
-		shouldStop := chaospod.Spec.NextStop.Time.Before(time.Now())
-		if !shouldStop {
-			return ctrl.Result{RequeueAfter: chaospod.Spec.NextStop.Sub(time.Now()) + 1*time.Second}, nil
-		}
-
-		if err := r.Delete(ctx, &pod); err != nil {
-			log.Error(err, "unable to delete pod")
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	templ := chaospod.Spec.Template.DeepCopy()
-	pod.ObjectMeta = templ.ObjectMeta
-	pod.Name = req.Name
-	pod.Namespace = req.Namespace
-	pod.Spec = templ.Spec
-
-	if err := ctrl.SetControllerReference(&chaospod, &pod, r.scheme); err != nil {
-		log.Error(err, "unable to set pod's owner reference")
-		return ctrl.Result{}, err
-	}
-
-	if err := r.Create(ctx, &pod); err != nil {
-		log.Error(err, "unable to create pod")
-		return ctrl.Result{}, err
-	}
-
-	chaospod.Spec.NextStop.Time = time.Now().Add(time.Duration(10*(rand.Int63n(2)+1)) * time.Second)
-	chaospod.Status.LastRun = pod.CreationTimestamp
-	if err := r.Update(ctx, &chaospod); err != nil {
-		log.Error(err, "unable to update chaosctl status")
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	utilruntime.Must(dnsv1.AddToScheme(scheme))
+	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
-	ctrl.SetLogger(zap.New())
+	var metricsAddr string
+	var enableLeaderElection bool
+	var probeAddr string
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	opts := zap.Options{
+		Development: true,
+	}
+	opts.BindFlags(flag.CommandLine)
+	flag.Parse()
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{})
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:                 scheme,
+		MetricsBindAddress:     metricsAddr,
+		Port:                   9443,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         enableLeaderElection,
+		LeaderElectionID:       "3e77a087.par.dev",
+		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
+		// when the Manager ends. This requires the binary to immediately end when the
+		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
+		// speeds up voluntary leader transitions as the new leader don't have to wait
+		// LeaseDuration time first.
+		//
+		// In the default scaffold provided, the program ends immediately after
+		// the manager stops, so would be fine to enable this option. However,
+		// if you are doing or is intended to do any operation such as perform cleanups
+		// after the manager stops then its usage might be unsafe.
+		// LeaderElectionReleaseOnCancel: true,
+	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	// in a real controller, we'd create a new scheme for this
-	err = api.AddToScheme(mgr.GetScheme())
-	if err != nil {
-		setupLog.Error(err, "unable to add scheme")
+	if err = (&controllers.ArecordReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Arecord")
 		os.Exit(1)
 	}
+	//+kubebuilder:scaffold:builder
 
-	err = ctrl.NewControllerManagedBy(mgr).
-		For(&api.ChaosPod{}).
-		Owns(&corev1.Pod{}).
-		Complete(&reconciler{
-			Client: mgr.GetClient(),
-			scheme: mgr.GetScheme(),
-		})
-	if err != nil {
-		setupLog.Error(err, "unable to create controller")
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
-
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&api.ChaosPod{}).
-		Complete()
-	if err != nil {
-		setupLog.Error(err, "unable to create webhook")
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 
