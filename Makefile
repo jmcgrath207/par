@@ -173,7 +173,7 @@ debug_deploy: manifests kustomize helmify
 										   --create-namespace \
 										   --namespace par
 	kubectl patch deployments.apps -n par par-chart-controller-manager -p \
-	'{ "spec": {"template": { "spec":{"securityContext": null, "containers":[{"name":"manager", "imagePullPolicy": "Never", "livenessProbe": null, "readinessProbe": null, "securityContext": null  }]}}}}'
+	'{ "spec": {"template": { "spec":{"securityContext": null, "containers":[{"name":"manager", "imagePullPolicy": "Never", "livenessProbe": null, "readinessProbe": null, "securityContext": null, "command": null, "args": null  }]}}}}'
 	kubectl expose deployment -n par par-chart-controller-manager --type=LoadBalancer --port=56268 || true
 	minikube tunnel
 
