@@ -165,18 +165,17 @@ $(HELMIFY): $(LOCALBIN)
 	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@latest
 
 
-IMAGE ?= local.io/local/par:debug-latest
-
 debug_deploy: manifests kustomize helmify
-	podman build  --no-cache -f DockerfileDebug -t ${IMAGE} .
-	minikube image load "${IMAGE}"
-	helm upgrade --install par ./chart --install --set controllerManager.manager.image.repository="local/par" \
+	docker build -f DockerfileDebug -t local.io/local/par:debug-latest .
+	minikube image load  local.io/local/par:debug-latest --overwrite --daemon
+	helm upgrade --install par ./chart --install --set controllerManager.manager.image.repository="local.io/local/par" \
 										   --set controllerManager.manager.image.tag="debug-latest" \
 										   --create-namespace \
 										   --namespace par
 	kubectl patch deployments.apps -n par par-chart-controller-manager -p \
-	'{"spec": {"template": {"spec":{"containers":[{"name":"manager","imagePullPolicy":"Never", "livenessProbe": null, "readinessProbe": null,  "securityContext" : {"runAsNonRoot" : false} }]}}}}'
-	kubectl port-forward --address=0.0.0.0 -n par deployments/par-chart-controller-manager 56268:56268
+	'{ "spec": {"template": { "spec":{"securityContext": null, "containers":[{"name":"manager", "imagePullPolicy": "Never", "livenessProbe": null, "readinessProbe": null, "securityContext": null  }]}}}}'
+	kubectl expose deployment -n par par-chart-controller-manager --type=LoadBalancer --port=56268 || true
+	minikube tunnel
 
 
 debug_destroy:
