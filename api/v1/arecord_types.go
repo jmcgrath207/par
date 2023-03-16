@@ -28,8 +28,9 @@ type ArecordSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Arecord. Edit arecord_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Namespace string            `json:"namespace,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Type      string            `json:"type,omitempty"`
 }
 
 // ArecordStatus defines the observed state of Arecord

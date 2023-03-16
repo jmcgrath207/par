@@ -14,7 +14,7 @@ resources:
   controller: true
   domain: par.dev
   group: dns
-  kind: Arecord
+  kind: aRecord
   path: github.com/jmcgrath207/par/api/v1
   version: v1
 version: "3"

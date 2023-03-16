@@ -35,9 +35,13 @@ spec:
           spec:
             description: ArecordSpec defines the desired state of Arecord
             properties:
-              foo:
-                description: Foo is an example field of Arecord. Edit arecord_types.go
-                  to remove/update
+              labels:
+                additionalProperties:
+                  type: string
+                type: object
+              namespace:
+                type: string
+              type:
                 type: string
             type: object
           status:

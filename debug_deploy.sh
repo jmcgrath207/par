@@ -3,10 +3,13 @@
 # Brief description of your script
 # Copyright 2023 john
 
+set -e
 
 function trap_func() {
   kill $(jobs -p)
+
 	kubectl delete -f config/samples
+	kubectl delete -f test_deployment.yaml
 }
 
 
@@ -16,6 +19,7 @@ function main() {
 	trap 'trap_func' EXIT ERR
 	docker build -f DockerfileDebug -t local.io/local/par:debug-latest .
 	minikube image load  local.io/local/par:debug-latest --overwrite --daemon
+#	kubectl delete crds -l app.kubernetes.io/instance=par || true
 	helm upgrade --install par ./chart --install --set controllerManager.manager.image.repository="local.io/local/par" \
 											   	 --set controllerManager.manager.image.tag="debug-latest" \
 											     --create-namespace \
@@ -28,6 +32,7 @@ function main() {
 	sleep 10
 	echo -e "\nUse the External-IP to connect to debugging"
 	kubectl get svc -n par par-chart-controller-manager
+	kubectl apply -f test_deployment.yaml
 	kubectl apply -f config/samples
 	wait ${minikube_pid}
 }

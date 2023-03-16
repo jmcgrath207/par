@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,9 +48,20 @@ type ArecordReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	ctx = context.Background()
+	var aRecord dnsv1.Arecord
+
+	if err := r.Get(ctx, req.NamespacedName, &aRecord); err != nil {
+		// Handle error if the MyResource object cannot be fetched
+		if errors.IsNotFound(err) {
+			// The MyResource object has been deleted, so we can stop reconciling
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	_ = log.FromContext(ctx)
 
 	return ctrl.Result{}, nil
 }
