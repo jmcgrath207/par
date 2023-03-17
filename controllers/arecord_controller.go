@@ -18,15 +18,21 @@ package controllers
 
 import (
 	"context"
+	"github.com/google/uuid"
+	dnsv1 "github.com/jmcgrath207/par/api/v1"
+	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	dnsv1 "github.com/jmcgrath207/par/api/v1"
 )
+
+var controllerSessionID uuid.UUID
+
+func init() {
+	controllerSessionID = uuid.New()
+}
 
 // ArecordReconciler reconciles a Arecord object
 type ArecordReconciler struct {
@@ -40,7 +46,6 @@ type ArecordReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
 // the Arecord object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
@@ -49,10 +54,27 @@ type ArecordReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
-	ctx = context.Background()
 	var aRecord dnsv1.Arecord
 
 	if err := r.Get(ctx, req.NamespacedName, &aRecord); err != nil {
+		// Handle error if the MyResource object cannot be fetched
+		if errors.IsNotFound(err) {
+			// The MyResource object has been deleted, so we can stop reconciling
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	var deployment apps.DeploymentList
+
+	// TODO: need to for loop this logic
+	opts := []client.ListOption{
+		client.InNamespace(aRecord.Spec.Namespace),
+		client.MatchingLabels(aRecord.Spec.Labels),
+	}
+	// TODO: E0317 04:22:26.109656      12 reflector.go:140] pkg/mod/k8s.io/client-go@v0.26.0/tools/cache/reflector.go:169: Failed to watch *v1.Deployment: failed to list *v1.Deployment: deployments.apps is forbidden: User "system:serviceaccount:par:par-chart-controller-manager" cannot list resource "deployments" in API group "apps" at the cluster scope
+	// code is dying here due to rbac.
+	if err := r.List(ctx, &deployment, opts...); err != nil {
 		// Handle error if the MyResource object cannot be fetched
 		if errors.IsNotFound(err) {
 			// The MyResource object has been deleted, so we can stop reconciling

@@ -13,3 +13,5 @@ spec:
   type: deployment
   labels:
     app: nginx
+  hostname: google.com
+  ip-address: 1.1.1.1

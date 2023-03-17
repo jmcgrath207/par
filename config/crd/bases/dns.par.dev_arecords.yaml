@@ -35,6 +35,10 @@ spec:
           spec:
             description: ArecordSpec defines the desired state of Arecord
             properties:
+              hostname:
+                type: string
+              ip-address:
+                type: string
               labels:
                 additionalProperties:
                   type: string
