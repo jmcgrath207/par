@@ -165,6 +165,7 @@ $(HELMIFY): $(LOCALBIN)
 	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@latest
 
 helm: manifests kustomize helmify
+	rm -r chart
 	$(KUSTOMIZE) build config/default | $(HELMIFY)
 
 debug_deploy: helm

@@ -16,6 +16,8 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: nginx:1.14.2
+          image: nicolaka/netshoot
+          command: [ "/bin/sh" ]
+          args: [ "-c", "while true; do echo hello; sleep 10000000000000;done" ]
           ports:
             - containerPort: 80

@@ -18,21 +18,15 @@ package controllers
 
 import (
 	"context"
-	"github.com/google/uuid"
 	dnsv1 "github.com/jmcgrath207/par/api/v1"
-	apps "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var controllerSessionID uuid.UUID
-
-func init() {
-	controllerSessionID = uuid.New()
-}
 
 // ArecordReconciler reconciles a Arecord object
 type ArecordReconciler struct {
@@ -43,6 +37,7 @@ type ArecordReconciler struct {
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/finalizers,verbs=update
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -65,22 +60,35 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	var deployment apps.DeploymentList
+	var deployments appsv1.DeploymentList
 
 	// TODO: need to for loop this logic
 	opts := []client.ListOption{
 		client.InNamespace(aRecord.Spec.Namespace),
 		client.MatchingLabels(aRecord.Spec.Labels),
 	}
-	// TODO: E0317 04:22:26.109656      12 reflector.go:140] pkg/mod/k8s.io/client-go@v0.26.0/tools/cache/reflector.go:169: Failed to watch *v1.Deployment: failed to list *v1.Deployment: deployments.apps is forbidden: User "system:serviceaccount:par:par-chart-controller-manager" cannot list resource "deployments" in API group "apps" at the cluster scope
-	// code is dying here due to rbac.
-	if err := r.List(ctx, &deployment, opts...); err != nil {
+	if err := r.List(ctx, &deployments, opts...); err != nil {
 		// Handle error if the MyResource object cannot be fetched
 		if errors.IsNotFound(err) {
 			// The MyResource object has been deleted, so we can stop reconciling
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
+	}
+
+	for _, deployment := range deployments.Items {
+
+		// Update the deployment object's hostAliases field
+		deployment.Spec.Template.Spec.HostAliases = []corev1.HostAlias{
+			{
+				IP:        aRecord.Spec.IPAddress,
+				Hostnames: []string{aRecord.Spec.HostName},
+			},
+		}
+
+		if err := r.Client.Update(ctx, &deployment); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	_ = log.FromContext(ctx)

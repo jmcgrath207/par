@@ -50,6 +50,9 @@ spec:
             type: object
           status:
             description: ArecordStatus defines the observed state of Arecord
+            properties:
+              action:
+                type: string
             type: object
         type: object
     served: true
