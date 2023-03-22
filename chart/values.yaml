@@ -30,3 +30,14 @@ metricsService:
     protocol: TCP
     targetPort: https
   type: ClusterIP
+parManager:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: dns
+  type: ClusterIP

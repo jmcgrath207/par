@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package arecord
 
 import (
 	"context"
-	dnsv1 "github.com/jmcgrath207/par/api/v1"
+	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

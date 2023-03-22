@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" . }}-par-manager
+  labels:
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.parManager.type }}
+  selector:
+    app: my-app
+  {{- include "chart.selectorLabels" . | nindent 4 }}
+  ports:
+	{{- .Values.parManager.ports | toYaml | nindent 2 -}}

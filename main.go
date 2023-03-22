@@ -18,6 +18,9 @@ package main
 
 import (
 	"flag"
+	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
+	"github.com/jmcgrath207/par/controllers/arecord"
+	"github.com/jmcgrath207/par/dns"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -31,8 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	dnsv1 "github.com/jmcgrath207/par/api/v1"
-	"github.com/jmcgrath207/par/controllers"
+	"github.com/jmcgrath207/par/proxy"
+
+	proxyv1alpha1 "github.com/jmcgrath207/par/apis/proxy/v1alpha1"
+	proxycontrollers "github.com/jmcgrath207/par/controllers/proxy"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -45,6 +50,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(dnsv1.AddToScheme(scheme))
+	utilruntime.Must(proxyv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -89,11 +95,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ArecordReconciler{
+	go proxy.Start()
+	go dns.Start()
+
+	if err = (&arecord.ArecordReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Arecord")
+		os.Exit(1)
+	}
+	if err = (&proxycontrollers.HttpProxyReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HttpProxy")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

@@ -1,0 +1,12 @@
+apiVersion: proxy.par.dev/v1alpha1
+kind: HttpProxy
+metadata:
+  labels:
+    app.kubernetes.io/name: httpproxy
+    app.kubernetes.io/instance: httpproxy-sample
+    app.kubernetes.io/part-of: par
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: par
+  name: httpproxy-sample
+spec:
+  # TODO(user): Add fields here

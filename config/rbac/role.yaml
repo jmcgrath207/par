@@ -42,3 +42,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - proxy.par.dev
+  resources:
+  - httpproxies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - proxy.par.dev
+  resources:
+  - httpproxies/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - proxy.par.dev
+  resources:
+  - httpproxies/status
+  verbs:
+  - get
+  - patch
+  - update
