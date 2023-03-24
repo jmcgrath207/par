@@ -19,6 +19,7 @@ package arecord
 import (
 	"context"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
+	"io/ioutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +39,7 @@ type ArecordReconciler struct {
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups="",resources=services,verbs=list
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -60,21 +62,47 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	serviceList := &corev1.ServiceList{}
+	namespace, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	opts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(map[string]string{"par.dev": "manager"}),
+	}
+	err = r.List(ctx, serviceList, opts...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	//serviceList.Items[0].Spec.ClusterIP
+
 	var deployments appsv1.DeploymentList
 
 	// TODO: need to for loop this logic
-	opts := []client.ListOption{
+	opts = []client.ListOption{
 		client.InNamespace(aRecord.Spec.Namespace),
 		client.MatchingLabels(aRecord.Spec.Labels),
 	}
-	if err := r.List(ctx, &deployments, opts...); err != nil {
-		// Handle error if the MyResource object cannot be fetched
-		if errors.IsNotFound(err) {
-			// The MyResource object has been deleted, so we can stop reconciling
-			return ctrl.Result{}, nil
-		}
+	err = r.List(ctx, &deployments, opts...)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	_ = log.FromContext(ctx)
+
+	return ctrl.Result{}, nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *ArecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&dnsv1.Arecord{}).
+		Complete(r)
+}
+
+func (r *ArecordReconciler) HostAlias(ctx context.Context, deployments appsv1.DeploymentList, aRecord dnsv1.Arecord) (ctrl.Result, error) {
 
 	for _, deployment := range deployments.Items {
 
@@ -90,15 +118,5 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 	}
-
-	_ = log.FromContext(ctx)
-
 	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *ArecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&dnsv1.Arecord{}).
-		Complete(r)
 }

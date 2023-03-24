@@ -1,15 +1,4 @@
 controllerManager:
-  kubeRbacProxy:
-    image:
-      repository: gcr.io/kubebuilder/kube-rbac-proxy
-      tag: v0.13.1
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 5m
-        memory: 64Mi
   manager:
     image:
       repository: local.io/library/par
@@ -17,19 +6,12 @@ controllerManager:
     resources:
       limits:
         cpu: 500m
-        memory: 128Mi
+        memory: 256Mi
       requests:
-        cpu: 10m
-        memory: 64Mi
+        cpu: 256m
+        memory: 128Mi
   replicas: 1
 kubernetesClusterDomain: cluster.local
-metricsService:
-  ports:
-  - name: https
-    port: 8443
-    protocol: TCP
-    targetPort: https
-  type: ClusterIP
 parManager:
   ports:
   - name: http
