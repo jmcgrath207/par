@@ -19,6 +19,7 @@ package arecord
 import (
 	"context"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
+	"github.com/jmcgrath207/par/storage"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,7 +40,7 @@ type ArecordReconciler struct {
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups="",resources=services,verbs=list, watch
+//+kubebuilder:rbac:groups="",resources=services,verbs=list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -78,7 +79,6 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	var deployments appsv1.DeploymentList
 
-	// TODO: need to for loop this logic
 	opts = []client.ListOption{
 		client.InNamespace(aRecord.Spec.Namespace),
 		client.MatchingLabels(aRecord.Spec.Labels),
@@ -89,9 +89,11 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	for _, deployment := range deployments.Items {
-		r.UpdateDns(ctx, deployment, serviceList.Items[0].Spec.ClusterIP)
+		r.UpdateDnsClient(deployment, serviceList.Items[0].Spec.ClusterIP)
 	}
 	_ = log.FromContext(ctx)
+
+	storage.SetRecord("A", aRecord.Spec.IPAddress, aRecord.Spec.HostName)
 
 	return ctrl.Result{}, nil
 }
@@ -103,8 +105,9 @@ func (r *ArecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *ArecordReconciler) UpdateDns(ctx context.Context, deployment appsv1.Deployment, dnsIP string) {
+func (r *ArecordReconciler) UpdateDnsClient(deployment appsv1.Deployment, dnsIP string) {
 	// Update Pods DNS server it points to.
+	// TODO: Check in memory cache first if these labels have already been processed.
 
 	deploymentClone := deployment.DeepCopy()
 
@@ -112,7 +115,7 @@ func (r *ArecordReconciler) UpdateDns(ctx context.Context, deployment appsv1.Dep
 	deploymentClone.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
 		Nameservers: []string{dnsIP},
 	}
-	// TODO: Doesn't work for DNS Policy
+
 	deploymentClone.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
 	err := r.Patch(context.TODO(), deploymentClone, client.MergeFrom(&deployment))
 	if err != nil {
@@ -120,6 +123,7 @@ func (r *ArecordReconciler) UpdateDns(ctx context.Context, deployment appsv1.Dep
 	}
 
 }
+
 func (r *ArecordReconciler) HostAlias(ctx context.Context, deployment appsv1.Deployment, aRecord dnsv1.Arecord) {
 	// Update the deployment object's hostAliases field
 	deployment.Spec.Template.Spec.HostAliases = []corev1.HostAlias{

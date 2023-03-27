@@ -11,6 +11,7 @@ rules:
   - services
   verbs:
   - list
+  - watch
 - apiGroups:
   - apps
   resources:

@@ -3,10 +3,10 @@ kind: Service
 metadata:
   name: par-manager
   labels:
-    par.dev: manager
+    control-plane: controller-manager
 spec:
   selector:
-    app: my-app
+    control-plane: controller-manager
   ports:
     - name: http
       port: 80

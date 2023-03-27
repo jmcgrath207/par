@@ -18,7 +18,6 @@ spec:
         - name: nginx
           image: nicolaka/netshoot
           command: [ "/bin/sh" ]
-#          args: [ "-c", "while true; do echo hello; sleep 10000000000000;done" ]
-          args: [ "-c", "ping google.com -t" ]
+          args: [ "-c", "while true; do nslookup google.com || true; sleep 1;done" ]
           ports:
             - containerPort: 80
