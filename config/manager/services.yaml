@@ -3,14 +3,18 @@ kind: Service
 metadata:
   name: par-manager
   labels:
-    control-plane: controller-manager
+    par.dev: manager
 spec:
   selector:
-    control-plane: controller-manager
+    par.dev: manager
   ports:
     - name: http
       port: 80
       targetPort: http
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: https
       protocol: TCP
     - name: dns
       protocol: UDP

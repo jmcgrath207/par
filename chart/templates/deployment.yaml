@@ -17,6 +17,7 @@ metadata:
     app.kubernetes.io/created-by: par
     app.kubernetes.io/part-of: par
     control-plane: controller-manager
+    par.dev: manager
   {{- include "chart.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.controllerManager.replicas }}
@@ -28,6 +29,7 @@ spec:
     metadata:
       labels:
         control-plane: controller-manager
+        par.dev: manager
       {{- include "chart.selectorLabels" . | nindent 8 }}
       annotations:
         kubectl.kubernetes.io/default-container: manager

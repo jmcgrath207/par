@@ -49,7 +49,10 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func lookupIP(host string) (net.IP, error) {
-	storage.GetRecord("A", host)
+	val, ok := storage.GetRecord("A", host)
+	if ok {
+		return net.ParseIP(val), nil
+	}
 	ips, err := net.LookupIP(host)
 	if err != nil {
 		return nil, err

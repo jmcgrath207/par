@@ -26,6 +26,7 @@ function main() {
 											     --namespace par
 	kubectl patch deployments.apps -n par par-chart-controller-manager -p \
 	'{ "spec": {"template": { "spec":{"securityContext": null, "containers":[{"name":"manager", "imagePullPolicy": "Never", "livenessProbe": null, "readinessProbe": null, "securityContext": null, "command": null, "args": null  }]}}}}'
+	# Don't delete on clean since it will change the debug IP address
 	kubectl expose deployment -n par par-chart-controller-manager --type=LoadBalancer --port=56268 || true
 	minikube tunnel &
 	minikube_pid=$!

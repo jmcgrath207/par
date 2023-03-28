@@ -18,6 +18,10 @@ parManager:
     port: 80
     protocol: TCP
     targetPort: http
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: https
   - name: dns
     port: 53
     protocol: UDP

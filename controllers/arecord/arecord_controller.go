@@ -93,7 +93,7 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	_ = log.FromContext(ctx)
 
-	storage.SetRecord("A", aRecord.Spec.IPAddress, aRecord.Spec.HostName)
+	storage.SetRecord("A", aRecord.Spec.HostName, aRecord.Spec.IPAddress)
 
 	return ctrl.Result{}, nil
 }

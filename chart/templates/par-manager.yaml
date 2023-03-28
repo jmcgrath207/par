@@ -3,12 +3,12 @@ kind: Service
 metadata:
   name: {{ include "chart.fullname" . }}-par-manager
   labels:
-    control-plane: controller-manager
+    par.dev: manager
   {{- include "chart.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.parManager.type }}
   selector:
-    control-plane: controller-manager
+    par.dev: manager
   {{- include "chart.selectorLabels" . | nindent 4 }}
   ports:
 	{{- .Values.parManager.ports | toYaml | nindent 2 -}}
