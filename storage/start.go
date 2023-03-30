@@ -1,6 +1,11 @@
 package storage
 
-var RecordMap = map[string]map[string]string{}
+import "net"
+
+var (
+	RecordMap     = map[string]map[string]string{}
+	SourceHostMap = map[string]net.IP{}
+)
 
 func SetRecord(recordType string, hostname string, data string) {
 	hostname = hostname + "."

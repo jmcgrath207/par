@@ -3,6 +3,7 @@ module github.com/jmcgrath207/par
 go 1.19
 
 require (
+	github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153
 	github.com/miekg/dns v1.1.52
 	github.com/onsi/ginkgo/v2 v2.6.0
 	github.com/onsi/gomega v1.24.1

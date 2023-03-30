@@ -34,8 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/jmcgrath207/par/proxy"
-
 	proxyv1alpha1 "github.com/jmcgrath207/par/apis/proxy/v1alpha1"
 	proxycontrollers "github.com/jmcgrath207/par/controllers/proxy"
 	//+kubebuilder:scaffold:imports
@@ -95,8 +93,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	go proxy.Start()
-	go dns.Start()
+	go dns.Start(mgr.GetClient())
 
 	if err = (&arecord.ArecordReconciler{
 		Client: mgr.GetClient(),

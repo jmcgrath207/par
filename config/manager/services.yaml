@@ -8,14 +8,6 @@ spec:
   selector:
     par.dev: manager
   ports:
-    - name: http
-      port: 80
-      targetPort: http
-      protocol: TCP
-    - name: https
-      port: 443
-      targetPort: https
-      protocol: TCP
     - name: dns
       protocol: UDP
       port: 53

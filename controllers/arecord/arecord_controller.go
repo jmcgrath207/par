@@ -19,6 +19,7 @@ package arecord
 import (
 	"context"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
+	pardns "github.com/jmcgrath207/par/dns"
 	"github.com/jmcgrath207/par/storage"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -40,7 +41,7 @@ type ArecordReconciler struct {
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups="",resources=services,verbs=list;watch
+//+kubebuilder:rbac:groups="",resources=services;pods,verbs=list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -83,6 +84,7 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		client.InNamespace(aRecord.Spec.Namespace),
 		client.MatchingLabels(aRecord.Spec.Labels),
 	}
+
 	err = r.List(ctx, &deployments, opts...)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -94,6 +96,8 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	_ = log.FromContext(ctx)
 
 	storage.SetRecord("A", aRecord.Spec.HostName, aRecord.Spec.IPAddress)
+
+	pardns.SetHostIP(opts)
 
 	return ctrl.Result{}, nil
 }
@@ -137,3 +141,19 @@ func (r *ArecordReconciler) HostAlias(ctx context.Context, deployment appsv1.Dep
 		panic(err)
 	}
 }
+
+//func getPodByIP(client client.Client, podIP string) (*corev1.Pod, error) {
+//	podList := &corev1.PodList{}
+//	err := client.List(context.Background(), podList)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	for _, pod := range podList.Items {
+//		if pod.Status.PodIP == podIP {
+//			return &pod, nil
+//		}
+//	}
+//
+//	return nil, fmt.Errorf("pod with IP %s not found", podIP)
+//}

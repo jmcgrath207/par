@@ -12,6 +12,6 @@ spec:
   namespace: default
   type: deployment
   labels:
-    app: nginx
+    app: example
   hostname: google.com
   ip-address: 1.1.1.1
