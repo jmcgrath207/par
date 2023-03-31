@@ -18,13 +18,4 @@ resources:
   kind: aRecord
   path: github.com/jmcgrath207/par/api/v1
   version: v1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: par.dev
-  group: proxy
-  kind: HttpProxy
-  path: github.com/jmcgrath207/par/apis/proxy/v1alpha1
-  version: v1alpha1
 version: "3"

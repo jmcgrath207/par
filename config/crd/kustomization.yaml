@@ -3,7 +3,6 @@
 # It should be run by config/default
 resources:
 - bases/dns.par.dev_arecords.yaml
-- bases/proxy.par.dev_httpproxies.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

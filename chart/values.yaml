@@ -19,27 +19,3 @@ parManager:
     protocol: UDP
     targetPort: dns
   type: ClusterIP
-parProxy:
-  ports:
-  - name: http
-    port: 80
-    protocol: TCP
-    targetPort: http
-  - name: https
-    port: 443
-    protocol: TCP
-    targetPort: https
-  type: ClusterIP
-proxy:
-  proxy:
-    image:
-      repository: nginx
-      tag: latest
-    resources:
-      limits:
-        cpu: 500m
-        memory: 256Mi
-      requests:
-        cpu: 256m
-        memory: 128Mi
-  replicas: 1
