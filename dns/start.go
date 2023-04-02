@@ -76,6 +76,7 @@ func SetHostIP(optsClient []client.ListOption) {
 
 	Client.List(context.Background(), serviceList, opts...)
 
+	//TODO: put error logging it can't find service in namespace of par chart
 	proxyIP := serviceList.Items[0].Spec.ClusterIP
 
 	var podList corev1.PodList

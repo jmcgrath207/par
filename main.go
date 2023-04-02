@@ -21,6 +21,7 @@ import (
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
 	"github.com/jmcgrath207/par/controllers/arecord"
 	"github.com/jmcgrath207/par/dns"
+	//"github.com/jmcgrath207/par/helm"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -89,6 +90,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	//go helm.Start(mgr)
 	go dns.Start(mgr.GetClient())
 
 	if err = (&arecord.ArecordReconciler{
