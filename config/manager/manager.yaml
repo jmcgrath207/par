@@ -24,7 +24,7 @@ metadata:
     app.kubernetes.io/created-by: par
     app.kubernetes.io/part-of: par
     app.kubernetes.io/managed-by: kustomize
-    par.dev: manager
+    par.dev/manager: "true"
 spec:
   selector:
     matchLabels:
@@ -35,7 +35,7 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        par.dev: manager
+        par.dev/manager: "true"
         control-plane: controller-manager
     spec:
       securityContext:

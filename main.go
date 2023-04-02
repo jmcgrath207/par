@@ -21,6 +21,9 @@ import (
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
 	"github.com/jmcgrath207/par/controllers/arecord"
 	"github.com/jmcgrath207/par/dns"
+	"github.com/jmcgrath207/par/proxy"
+	"github.com/jmcgrath207/par/storage"
+
 	//"github.com/jmcgrath207/par/helm"
 	"os"
 
@@ -91,7 +94,9 @@ func main() {
 	}
 
 	//go helm.Start(mgr)
-	go dns.Start(mgr.GetClient())
+	go storage.Start()
+	go dns.Start()
+	go proxy.Start(mgr.GetClient())
 
 	if err = (&arecord.ArecordReconciler{
 		Client: mgr.GetClient(),

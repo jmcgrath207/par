@@ -15,7 +15,7 @@ spec:
         app: example
     spec:
       containers:
-        - name: proxy
+        - name: client
           image: nicolaka/netshoot
           command: [ "/bin/sh" ]
           args: [ "-c", "while true; do nslookup google.com || true; sleep 1;done" ]

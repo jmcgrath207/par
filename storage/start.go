@@ -3,9 +3,14 @@ package storage
 import "net"
 
 var (
-	RecordMap     = map[string]map[string]string{}
-	SourceHostMap = map[string]net.IP{}
+	RecordMap              = map[string]map[string]string{}
+	SourceHostMap          = map[string]net.IP{}
+	AcquiredProxyServiceIP chan bool
 )
+
+func Start() {
+	AcquiredProxyServiceIP = make(chan bool)
+}
 
 func SetRecord(recordType string, hostname string, data string) {
 	hostname = hostname + "."

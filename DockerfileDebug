@@ -17,7 +17,7 @@ COPY apis/ apis/
 COPY controllers/ controllers/
 COPY dns/  dns/
 COPY storage/  storage/
-#COPY helm/  helm/
+COPY proxy/  proxy/
 
 RUN go build -gcflags="all=-N -l"  -o /manager main.go
 

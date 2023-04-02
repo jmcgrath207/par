@@ -19,7 +19,7 @@ package arecord
 import (
 	"context"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
-	pardns "github.com/jmcgrath207/par/dns"
+	"github.com/jmcgrath207/par/proxy"
 	"github.com/jmcgrath207/par/storage"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -71,7 +71,7 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
-		client.MatchingLabels(map[string]string{"par.dev": "manager"}),
+		client.MatchingLabels(map[string]string{"par.dev/manager": "true"}),
 	}
 	err = r.List(ctx, serviceList, opts...)
 	if err != nil {
@@ -97,7 +97,7 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	storage.SetRecord("A", aRecord.Spec.HostName, aRecord.Spec.IPAddress)
 
-	pardns.SetHostIP(opts)
+	proxy.SetProxyServiceIP(opts)
 
 	return ctrl.Result{}, nil
 }

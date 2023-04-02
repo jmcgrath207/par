@@ -1,27 +1,16 @@
 package dns
 
 import (
-	"context"
 	"fmt"
 	"github.com/jmcgrath207/par/storage"
 	"github.com/miekg/dns"
-	corev1 "k8s.io/api/core/v1"
 	"net"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var Client client.Client
-var gatherHostIP chan bool
-
-func init() {
-	gatherHostIP = make(chan bool)
-}
-
-func Start(client client.Client) {
-	Client = client
+func Start() {
 	server := &dns.Server{Addr: ":53", Net: "udp"}
-	<-gatherHostIP
+	<-storage.AcquiredProxyServiceIP
 	server.Handler = dns.HandlerFunc(handleDNSRequest)
 	err := server.ListenAndServe()
 	if err != nil {
@@ -63,31 +52,6 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	}
 	m.SetRcode(r, dns.RcodeNameError)
 	w.WriteMsg(m)
-}
-
-func SetHostIP(optsClient []client.ListOption) {
-
-	serviceList := &corev1.ServiceList{}
-	namespace, _ := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	opts := []client.ListOption{
-		client.InNamespace(namespace),
-		client.MatchingLabels(map[string]string{"par.dev": "proxy"}),
-	}
-
-	Client.List(context.Background(), serviceList, opts...)
-
-	//TODO: put error logging it can't find service in namespace of par chart
-	proxyIP := serviceList.Items[0].Spec.ClusterIP
-
-	var podList corev1.PodList
-
-	Client.List(context.Background(), &podList, optsClient...)
-
-	for _, pod := range podList.Items {
-		storage.SourceHostMap[pod.Status.PodIP] = net.ParseIP(proxyIP)
-	}
-	gatherHostIP <- true
-
 }
 
 func lookupIP(domainName string, senderIP net.IP) (net.IP, error) {

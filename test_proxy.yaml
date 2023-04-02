@@ -2,16 +2,17 @@
 
 
 commonLabels:
-  par.dev: proxy
+  par.dev/proxy: true
+  par.dev/proxy-config: true
 
-
+# Issues with the default nginx config rendering
 serverBlock: |-
   server {
       listen 80;
       server_name proxy.example.com;
 
       location / {
-          resolver 8.8.8.8;
+          resolver dnsResolver valid=30s;
           proxy_pass http://$http_host$request_uri;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;

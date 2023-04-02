@@ -17,8 +17,7 @@ COPY apis/ apis/
 COPY controllers/ controllers/
 COPY dns/  dns/
 COPY storage/  storage/
-#COPY helm/  helm/
-
+COPY proxy/  proxy/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
