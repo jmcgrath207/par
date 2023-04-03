@@ -52,6 +52,12 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+//Used to update dns on deployments
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
+
+//Used to get pods and services ip addresses
+//+kubebuilder:rbac:groups="",resources=services;pods,verbs=list;watch
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool

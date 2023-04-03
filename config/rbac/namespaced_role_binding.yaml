@@ -1,0 +1,20 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: rolebinding
+    app.kubernetes.io/instance: manager-rolebinding
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: par
+    app.kubernetes.io/part-of: par
+    app.kubernetes.io/managed-by: kustomize
+  namespace: system
+  name: manager-rolebinding-namespaced
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: manager-role-namespaced
+subjects:
+  - kind: ServiceAccount
+    name: controller-manager
+    namespace: system

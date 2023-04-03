@@ -40,8 +40,6 @@ type ArecordReconciler struct {
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/finalizers,verbs=update
-//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups="",resources=services;pods,verbs=list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -64,6 +62,8 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	// Find all deployments that match the labels in of par.dev/manager: true
+	// Get the IP address of the service that matches the labels in the A record
 	serviceList := &corev1.ServiceList{}
 	namespace, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
@@ -80,6 +80,7 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	var deployments appsv1.DeploymentList
 
+	// Get all deployments that match the labels and namespace in the A record
 	opts = []client.ListOption{
 		client.InNamespace(aRecord.Spec.Namespace),
 		client.MatchingLabels(aRecord.Spec.Labels),
@@ -90,6 +91,7 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	// Update the deployment's DNS server to point to the service IP address of the Manager
 	for _, deployment := range deployments.Items {
 		r.UpdateDnsClient(deployment, serviceList.Items[0].Spec.ClusterIP)
 	}
@@ -110,7 +112,7 @@ func (r *ArecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *ArecordReconciler) UpdateDnsClient(deployment appsv1.Deployment, dnsIP string) {
-	// Update Pods DNS server it points to.
+	// Update Pods DNS server it points to the service IP address of the Manager
 	// TODO: Check in memory cache first if these labels have already been processed.
 
 	deploymentClone := deployment.DeepCopy()

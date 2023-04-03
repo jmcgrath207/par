@@ -10,7 +10,7 @@ import (
 
 func Start() {
 	server := &dns.Server{Addr: ":53", Net: "udp"}
-	<-storage.AcquiredProxyServiceIP
+	<-storage.ProxyReady
 	server.Handler = dns.HandlerFunc(handleDNSRequest)
 	err := server.ListenAndServe()
 	if err != nil {
@@ -56,7 +56,7 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 func lookupIP(domainName string, senderIP net.IP) (net.IP, error) {
 
-	// force traffic to work to proxy
+	// force traffic to go through proxy
 	proxyIP, ok := storage.SourceHostMap[senderIP.String()]
 	if ok {
 		return proxyIP, nil

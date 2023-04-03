@@ -3,10 +3,10 @@ kind: Service
 metadata:
   name: par-manager
   labels:
-    par.dev: manager
+    par.dev/manager: "true"
 spec:
   selector:
-    par.dev: manager
+    par.dev/manager: "true"
   ports:
     - name: dns
       protocol: UDP
