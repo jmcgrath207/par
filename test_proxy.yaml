@@ -12,7 +12,7 @@ serverBlock: |-
       server_name proxy.example.com;
 
       location / {
-          resolver {{ `{{ .dnsResolver }}` }} valid=30s;
+          resolver {{ `{{ .dnsResolver }}` }};
           proxy_pass http://$http_host$request_uri;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;

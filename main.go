@@ -58,6 +58,11 @@ func init() {
 //Used to get pods and services ip addresses
 //+kubebuilder:rbac:groups="",resources=services;pods,verbs=list;watch
 
+//Used to update the configmap and secrets of proxy config to point to dns manager pod
+//+kubebuilder:rbac:groups="",resources=configmaps;secrets,verbs=get;list;watch;update;patch
+/////////+kubebuilder:rbac:groups="",namespace=xxxx,resources=configmaps;secrets,verbs=get;list;watch;update;patch
+//
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool

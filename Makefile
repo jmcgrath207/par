@@ -171,5 +171,5 @@ helm: manifests kustomize helmify
 debug_deploy: helm
 	./debug_deploy.sh
 
-debug_destroy:
-	helm uninstall par -n par
+local_deploy: helm
+	./local_deploy.sh
