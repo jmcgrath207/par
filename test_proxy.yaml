@@ -5,18 +5,19 @@ commonLabels:
   par.dev/proxy: "true"
   par.dev/proxy-config: "true"
 
+image:
+  debug: true
+
+containerPorts:
+  http: 8080
+
 # Issues with the default nginx config rendering
 serverBlock: |-
   server {
-      listen 80;
-      server_name proxy.example.com;
+      listen 0.0.0.0:8080;
 
       location / {
           resolver {{ `{{ .dnsResolver }}` }};
-          proxy_pass http://$http_host$request_uri;
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_pass http://$http_host$uri$is_args$args;
       }
   }

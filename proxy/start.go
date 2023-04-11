@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"text/template"
 	"time"
 )
@@ -33,12 +34,22 @@ func SetProxyServiceIP(optsClient []client.ListOption) {
 		client.MatchingLabels(map[string]string{"par.dev/proxy": "true"}),
 	}
 
+	log.FromContext(context.Background()).Info("Looking for proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")
 	err := k8sClient.List(context.Background(), serviceList, opts...)
 	if err != nil {
+		log.FromContext(context.Background()).Error(err, "Error getting proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")
 		panic(err)
 	}
 
-	//TODO: put error logging it can't find service in namespace of par chart
+	if len(serviceList.Items) == 0 {
+		log.FromContext(context.Background()).Info("Waiting for proxy service to be created", "namespace", string(namespace), "label", "par.dev/proxy=true")
+		time.Sleep(5 * time.Second)
+		SetProxyServiceIP(optsClient)
+		return
+	}
+
+	log.FromContext(context.Background()).Info("Found proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")
+
 	proxyIP := serviceList.Items[0].Spec.ClusterIP
 
 	var podList corev1.PodList
@@ -46,11 +57,13 @@ func SetProxyServiceIP(optsClient []client.ListOption) {
 	k8sClient.List(context.Background(), &podList, optsClient...)
 
 	for _, pod := range podList.Items {
+		log.FromContext(context.Background()).Info("Setting Dns to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", proxyIP)
 		storage.SourceHostMap[pod.Status.PodIP] = net.ParseIP(proxyIP)
 	}
 
 	renderProxyConfig(proxyIP)
 	storage.ProxyReady <- true
+	log.FromContext(context.Background()).Info("Proxy is ready", "namespace", string(namespace), "label", "par.dev/proxy=true")
 
 }
 
@@ -66,13 +79,18 @@ func renderProxyConfig(proxyIP string) {
 	}
 
 	// TODO: keeps on requests are cluster level and not namespaced
+	log.FromContext(context.Background()).Info("Looking for proxy config maps",
+		"namespace", string(namespace), "label", "par.dev/proxy-config=true")
 	err := k8sClient.List(context.Background(), serviceList, opts...)
 	if err != nil {
+		log.FromContext(context.Background()).Error(err, "Error getting proxy config maps",
+			"namespace", string(namespace), "label", "par.dev/proxy-config=true")
 		panic(err)
 	}
+	log.FromContext(context.Background()).Info("Found proxy config maps", "namespace",
+		string(namespace), "label", "par.dev/proxy-config=true")
 
-	// Update config maps with proxy IP
-
+	// Update config maps with proxy-config label
 	for _, configMap := range serviceList.Items {
 		for k, v := range configMap.Data {
 			templ := template.Must(template.New("").Parse(v))
@@ -89,11 +107,17 @@ func renderProxyConfig(proxyIP string) {
 				Namespace: configMap.Namespace,
 			},
 		}))
+		if err != nil {
+			panic(err)
+		}
+		log.FromContext(context.Background()).Info("Updated proxy config map with Dns Resolver Ip",
+			"namespace", string(namespace), "configMap", configMap.Name,
+			"dnsResolver", proxyIP, "label", "par.dev/proxy-config=true")
 	}
 
 	var deployments appsv1.DeploymentList
 
-	// Get all deployments that match the labels and namespace in the A record
+	// Get all deployments that have the proxy label
 	opts = []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(map[string]string{"par.dev/proxy": "true"}),
@@ -116,8 +140,13 @@ func renderProxyConfig(proxyIP string) {
 		// Update the deployment object
 		err = k8sClient.Update(context.TODO(), &deployment)
 		if err != nil {
+			log.FromContext(context.Background()).Error(err, "Error updating deployment",
+				"namespace", deployment.Namespace, "name", deployment.Name)
 			panic(err)
 		}
+		log.FromContext(context.Background()).Info("Updated proxy deployment to trigger a restart",
+			"namespace", deployment.Namespace, "name", deployment.Name)
+
 	}
 
 }

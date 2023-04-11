@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-deployment-a-record
+  labels:
+    app: example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example
+  template:
+    metadata:
+      labels:
+        app: example
+    spec:
+      containers:
+        - name: client
+          image: nicolaka/netshoot
+          command: [ "/bin/sh" ]
+          args: [ "-c", "while true; do nslookup google.com || true; sleep 1;done" ]
+          ports:
+            - containerPort: 80

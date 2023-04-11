@@ -6,10 +6,13 @@
 set -e
 
 function trap_func() {
+	kubectl delete -f test_a_record_deployment.yaml --ignore-not-found
+	kubectl delete -f test_no_record_deployment.yaml --ignore-not-found
+	kubectl delete -f test_wget_a_record_deployment.yaml --ignore-not-found
+	kubectl delete -f test_wget_no_record_deployment.yaml --ignore-not-found
 	helm uninstall par -n par
 	helm delete nginx -n par
 	kubectl delete -f config/samples
-	kubectl delete -f test_deployment.yaml
     kill $(jobs -p)
 }
 
@@ -27,12 +30,15 @@ function main() {
 	kubectl expose deployment -n par par-chart-controller-manager --type=LoadBalancer --port=56268 || true
 	helm install nginx nginx/nginx -f test_proxy.yaml -n par
 #	|| helm repo add nginx https://charts.bitnami.com/bitnami && helm install nginx nginx/nginx --set commonLabels."par\.dev"=proxy
-	kubectl logs -l app=example -f &
+	minikube tunnel &
 	minikube_pid=$!
-	sleep 300
+	sleep 10
 	echo -e "\nUse the External-IP to connect to debugging"
 	kubectl get svc -n par par-chart-controller-manager
-	kubectl apply -f test_deployment.yaml
+# 	kubectl apply -f test_a_record_deployment.yaml
+# 	kubectl apply -f test_no_record_deployment.yaml
+# 	kubectl apply -f test_wget_a_record_deployment.yaml
+	kubectl apply -f test_wget_no_record_deployment.yaml
 	kubectl apply -f config/samples
 	wait ${minikube_pid}
 

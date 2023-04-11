@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: example-deployment
+  name: example-deployment-no-record
   labels:
     app: example
 spec:
@@ -18,6 +18,6 @@ spec:
         - name: client
           image: nicolaka/netshoot
           command: [ "/bin/sh" ]
-          args: [ "-c", "while true; do nslookup google.com || true; sleep 1;done" ]
+          args: [ "-c", "while true; do nslookup yahoo.com || true; sleep 1;done" ]
           ports:
             - containerPort: 80

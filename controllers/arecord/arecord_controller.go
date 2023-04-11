@@ -61,9 +61,13 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, err
 	}
+	//log.FromContext(ctx).Info("Reconciling A record", "A record",
+	//	aRecord.Spec.HostName, aRecord.Spec.IPAddress, aRecord.Spec.Namespace, aRecord.Spec.Labels)
 
-	// Find all deployments that match the labels in of par.dev/manager: true
-	// Get the IP address of the service that matches the labels in the A record
+	log.FromContext(ctx).Info("Reconciling A record", "A record",
+		aRecord.Spec.HostName, "IP address", aRecord.Spec.IPAddress, "Namespace", aRecord.Spec.Namespace, "Labels", aRecord.Spec.Labels)
+
+	// Find all services that match the labels in of par.dev/manager: true
 	serviceList := &corev1.ServiceList{}
 	namespace, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
@@ -73,10 +77,13 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		client.InNamespace(namespace),
 		client.MatchingLabels(map[string]string{"par.dev/manager": "true"}),
 	}
+	log.FromContext(ctx).Info("searching for par manager service", "namespace", namespace)
+
 	err = r.List(ctx, serviceList, opts...)
 	if err != nil {
-		return ctrl.Result{}, err
+		log.FromContext(ctx).Error(err, "could not find par manager service", "namespace", namespace)
 	}
+	log.FromContext(ctx).Info("found service par manager service", "service", serviceList.Items[0].Spec.ClusterIP)
 
 	var deployments appsv1.DeploymentList
 
@@ -86,16 +93,18 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		client.MatchingLabels(aRecord.Spec.Labels),
 	}
 
+	log.FromContext(ctx).Info("searching for deployments with labels", "labels", aRecord.Spec.Labels, "namespace", aRecord.Spec.Namespace)
 	err = r.List(ctx, &deployments, opts...)
 	if err != nil {
+		log.FromContext(ctx).Error(err, "could not find deployments with labels", "labels", aRecord.Spec.Labels, "namespace", aRecord.Spec.Namespace)
 		return ctrl.Result{}, err
 	}
 
 	// Update the deployment's DNS server to point to the service IP address of the Manager
 	for _, deployment := range deployments.Items {
+		log.FromContext(ctx).Info("found client deployment", "deployment", deployment.Name)
 		r.UpdateDnsClient(deployment, serviceList.Items[0].Spec.ClusterIP)
 	}
-	_ = log.FromContext(ctx)
 
 	storage.SetRecord("A", aRecord.Spec.HostName, aRecord.Spec.IPAddress)
 
@@ -123,10 +132,13 @@ func (r *ArecordReconciler) UpdateDnsClient(deployment appsv1.Deployment, dnsIP 
 	}
 
 	deploymentClone.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
+	log.FromContext(context.Background()).Info("updating deployment dns policy to point to service dnsIP of par manager", "deployment", deploymentClone.Name, "dnsIP", dnsIP)
 	err := r.Patch(context.TODO(), deploymentClone, client.MergeFrom(&deployment))
 	if err != nil {
+		log.FromContext(context.Background()).Error(err, "could not update deployment dns policy to point to service dnsIP of par manager", "deployment", deploymentClone.Name, "dnsIP", dnsIP)
 		panic(err)
 	}
+	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager", "deployment", deploymentClone.Name, "dnsIP", dnsIP)
 
 }
 
