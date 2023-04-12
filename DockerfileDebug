@@ -22,7 +22,7 @@ COPY proxy/  proxy/
 RUN go build -gcflags="all=-N -l"  -o /manager main.go
 
 
-FROM debian:buster
+FROM nicolaka/netshoot:latest
 ENV GOTRACEBACK=single
 WORKDIR /
 COPY --from=builder /manager .

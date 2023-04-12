@@ -39,9 +39,9 @@ function main() {
 	sleep 10
 	echo -e "\nUse the External-IP to connect to debugging"
 	kubectl get svc -n par par-chart-controller-manager
-# 	kubectl apply -f test_a_record_deployment.yaml
-# 	kubectl apply -f test_no_record_deployment.yaml
-# 	kubectl apply -f test_wget_a_record_deployment.yaml
+	kubectl apply -f test_a_record_deployment.yaml
+	kubectl apply -f test_no_record_deployment.yaml
+	kubectl apply -f test_wget_a_record_deployment.yaml
 	kubectl apply -f test_wget_no_record_deployment.yaml
 	kubectl apply -f config/samples
 	wait ${minikube_pid}

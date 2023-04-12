@@ -53,13 +53,14 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 				}
 				m.Answer = append(m.Answer, a)
 			}
-			m.SetRcode(r, dns.RcodeSuccess)
-			w.WriteMsg(m)
-			return
 		}
 	}
-	m.SetRcode(r, dns.RcodeNameError)
-	w.WriteMsg(m)
+	m.SetRcode(r, dns.RcodeSuccess)
+	err := w.WriteMsg(m)
+	if err != nil {
+		panic(err)
+	}
+	return
 }
 
 func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
