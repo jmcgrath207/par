@@ -6,10 +6,10 @@
 set -e
 
 function trap_func() {
-	kubectl delete -f test_a_record_deployment.yaml --ignore-not-found
-	kubectl delete -f test_no_record_deployment.yaml --ignore-not-found
-	kubectl delete -f test_wget_a_record_deployment.yaml --ignore-not-found
-	kubectl delete -f test_wget_no_record_deployment.yaml --ignore-not-found
+	kubectl delete -f tests/resources/test_a_record_deployment.yaml --ignore-not-found
+	kubectl delete -f tests/resources/test_no_record_deployment.yaml --ignore-not-found
+	kubectl delete -f tests/resources/test_wget_a_record_deployment.yaml --ignore-not-found
+	kubectl delete -f tests/resources/test_wget_no_record_deployment.yaml --ignore-not-found
 	helm uninstall par -n par
 	helm delete nginx -n par
 	kubectl delete -f config/samples
@@ -35,10 +35,10 @@ function main() {
 	sleep 10
 	echo -e "\nUse the External-IP to connect to debugging"
 	kubectl get svc -n par par-chart-controller-manager
-	kubectl apply -f test_a_record_deployment.yaml
-	kubectl apply -f test_no_record_deployment.yaml
-	kubectl apply -f test_wget_a_record_deployment.yaml
-	kubectl apply -f test_wget_no_record_deployment.yaml
+	kubectl apply -f tests/resources/test_a_record_deployment.yaml
+	kubectl apply -f tests/resources/test_no_record_deployment.yaml
+	kubectl apply -f tests/resources/test_wget_a_record_deployment.yaml
+	kubectl apply -f tests/resources/test_wget_no_record_deployment.yaml
 	kubectl apply -f config/samples
 	wait ${minikube_pid}
 
