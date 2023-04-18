@@ -179,5 +179,8 @@ local_deploy: helm
 # https://github.com/prometheus-operator/prometheus-operator/blob/main/Makefile
 
 test-e2e: KUBECONFIG?=$(HOME)/.kube/config
+test-e2e: IMAGE_OPERATOR?=local.io/local/par:latest
 test-e2e:
-	go test -timeout 120m -v ./test/e2e/ $(TEST_RUN_ARGS) --kubeconfig=$(KUBECONFIG) --operator-image=$(IMAGE_OPERATOR):$(TAG) -count=1
+	./tests/e2e/test_deploy.sh
+	go test -timeout 120m -v ./tests/e2e/ $(TEST_RUN_ARGS) --kubeconfig=$(KUBECONFIG) --operator-image=$(IMAGE_OPERATOR) -count=1
+
