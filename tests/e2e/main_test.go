@@ -25,11 +25,11 @@ func cleanupTestDeploy() {
 func TestMain(m *testing.M) {
 
 	cmd := exec.Command("/bin/bash", "./test_deploy.sh")
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Println(err.Error())
 		fmt.Println(string(output))
-		return
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 	defer cleanupTestDeploy()
 
