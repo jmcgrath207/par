@@ -20,6 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
+// REF: https://superorbital.io/blog/testing-production-controllers/
+// REF: https://github.com/superorbital/random-number-controller
+
 var (
 	timeout  = time.Second * 10
 	duration = time.Second * 10

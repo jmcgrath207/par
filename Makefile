@@ -175,8 +175,12 @@ create_kind:
 deploy_debug: helm create_kind
 	ENV='debug' ./scripts/deploy.sh
 
+deploy_e2e_debug: helm envtest create_kind
+	ENV='e2e-debug' ./scripts/deploy.sh
+
 deploy_local: helm create_kind
 	./scripts/deploy.sh
 
 deploy_e2e: helm envtest create_kind
 	ENV='e2e' ./scripts/deploy.sh
+
