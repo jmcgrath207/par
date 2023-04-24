@@ -157,30 +157,26 @@ envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-### HELMIFY COMMMANDS ###
+### Custom Commands ###
+.EXPORT_ALL_VARIABLES:
 
 .PHONY: helmify
 helmify: $(HELMIFY) ## Download helmify locally if necessary.
 $(HELMIFY): $(LOCALBIN)
 	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@latest
 
-helm: manifests kustomize helmify
+helm: manifests generate fmt vet kustomize helmify
 	rm -r chart
 	$(KUSTOMIZE) build config/default | $(HELMIFY)
 
-debug_deploy: helm
-	./debug_deploy.sh
+create_kind:
+	./scripts/create_kind.sh
 
-local_deploy: helm
-	./local_deploy.sh
+deploy_debug: helm create_kind
+	ENV='debug' ./scripts/deploy.sh
 
+deploy_local: helm create_kind
+	./scripts/deploy.sh
 
-# Sourced from
-# https://github.com/prometheus-operator/prometheus-operator/blob/main/Makefile
-
-test-e2e: KUBECONFIG?=$(HOME)/.kube/config
-test-e2e: IMAGE_OPERATOR?=local.io/local/par:latest
-test-e2e:
-	./tests/e2e/test_deploy.sh
-	go test -timeout 120m -v ./tests/e2e/ $(TEST_RUN_ARGS) --kubeconfig=$(KUBECONFIG) --operator-image=$(IMAGE_OPERATOR) -count=1
-
+deploy_e2e: helm envtest create_kind
+	ENV='e2e' ./scripts/deploy.sh

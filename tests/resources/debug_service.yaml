@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: par-manager-debug
+  namespace: par
+spec:
+  type: NodePort
+  selector:
+    par.dev/manager: "true"
+  ports:
+    - protocol: TCP
+      port: 9999
+      targetPort: 9999
+      nodePort: 30002

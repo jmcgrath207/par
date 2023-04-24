@@ -28,10 +28,7 @@ WORKDIR /
 COPY --from=builder /manager .
 COPY --from=builder /go/bin/dlv .
 
-EXPOSE 56268
+EXPOSE 9999
 
-
-
-
-ENTRYPOINT ["/dlv", "exec",  "--listen=:56268", "--headless=true", "--api-version=2", "--accept-multiclient", "/manager"]
+ENTRYPOINT ["/dlv", "exec",  "--listen=:9999", "--headless=true", "--api-version=2", "--accept-multiclient", "/manager"]
 
