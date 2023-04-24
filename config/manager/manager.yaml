@@ -48,16 +48,21 @@ spec:
           image: controller:latest
           name: manager
           securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
             allowPrivilegeEscalation: false
             capabilities:
+              add:
+                - CAP_NET_RAW
               drop:
-                - "ALL"
+                - ALL
+            readOnlyRootFilesystem: true
           ports:
             - name: http
               containerPort: 80
               protocol: TCP
             - name: dns
-              containerPort: 53
+              containerPort: 9000
               protocol: UDP
           livenessProbe:
             httpGet:

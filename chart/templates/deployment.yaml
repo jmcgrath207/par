@@ -55,7 +55,7 @@ spec:
         - containerPort: 80
           name: http
           protocol: TCP
-        - containerPort: 53
+        - containerPort: 9000
           name: dns
           protocol: UDP
         readinessProbe:
@@ -69,8 +69,13 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
+            add:
+            - CAP_NET_RAW
             drop:
-            - ALL
+            - all
+          readOnlyRootFilesystem: true
+          runAsGroup: 65532
+          runAsUser: 65532
       securityContext:
         runAsNonRoot: true
       serviceAccountName: {{ include "chart.fullname" . }}-controller-manager

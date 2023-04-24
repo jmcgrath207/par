@@ -104,8 +104,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//go helm.Start(mgr)
-	go storage.Start()
+	storage.Start()
 	go dns.Start()
 	go proxy.Start(mgr.GetClient())
 

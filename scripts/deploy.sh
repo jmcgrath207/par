@@ -41,7 +41,7 @@ function main() {
   helm install nginx nginx/nginx -f tests/resources/test_proxy.yaml -n par
 
   # Background log following for manager
-  ( sleep 10 ; printf "\n\n" && kubectl logs -n par -l par.dev/manager="true" -f ) &
+  ( sleep 10 ; printf "\n\n" && while :; do kubectl logs -n par -l par.dev/manager="true" -f || sleep 5; done) &
 
   if [[ $ENV == "debug" ]]; then
     add_test_clients

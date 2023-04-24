@@ -11,13 +11,14 @@ import (
 )
 
 func Start() {
-	server := &dns.Server{Addr: ":53", Net: "udp"}
+	server := &dns.Server{Addr: ":9000", Net: "udp"}
 	<-storage.ProxyReady
-	log.FromContext(context.Background()).Info("Starting DNS server", "port", "53")
+	log.FromContext(context.Background()).Info("Starting DNS server", "port", "9000")
 	server.Handler = dns.HandlerFunc(handleDNSRequest)
 	err := server.ListenAndServe()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start server: %s\n", err.Error())
+		panic(err)
 	}
 }
 
