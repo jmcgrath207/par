@@ -7,22 +7,16 @@ import (
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-
-	//appsv1 "k8s.io/api/apps/v1"
 	"os"
 	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
-
-	//corev1 "k8s.io/api/core/v1"
-	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/kubernetes"
-	//"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // REF: https://superorbital.io/blog/testing-production-controllers/
@@ -46,6 +40,15 @@ func boolPointer(b bool) *bool {
 	return &b
 }
 
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 func cleanupResource(object client.Object) {
 	err := k8sClient.Delete(context.TODO(), object)
 	g.Expect(err).ToNot(HaveOccurred())
@@ -65,7 +68,8 @@ func addArecord() *dnsv1.Arecord {
 	if err != nil {
 		fmt.Printf("%#v", err)
 	}
-	g.Expect(k8sClient.Create(context.TODO(), aRecord)).Should(Succeed())
+	err = k8sClient.Create(context.TODO(), aRecord)
+	g.Expect(err).Should(Succeed())
 	return aRecord
 }
 
@@ -96,26 +100,32 @@ func testNoRecordDeployment() {
 	k8sClient.List(context.TODO(), &podList, opts...)
 
 	for _, pod := range podList.Items {
-		req := clientset.CoreV1().Pods(namespace).GetLogs(pod.Name, &v1.PodLogOptions{
-			Container: "",
+		req := clientset.CoreV1().Pods(pod.ObjectMeta.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
+			Container: pod.Spec.Containers[0].Name,
 		})
 		podLogs, err := req.Stream(context.Background())
 		if err != nil {
-			logger.Error(err, "unable to get pod logs")
+			log.FromContext(context.Background()).Error(err, "unable to get pod logs")
 			os.Exit(1)
 		}
 		defer podLogs.Close()
 
-		// Read the logs into a buffer
 		buffer := make([]byte, 1024)
 		for {
 			bytesRead, err := podLogs.Read(buffer)
 			if err != nil {
-				logger.Error(err, "unable to read pod logs")
+				log.FromContext(context.Background()).Error(err, "unable to read pod logs")
 				break
 			}
 			if bytesRead > 0 {
-				fmt.Print(string(buffer[:bytesRead]))
+				output := string(buffer[:bytesRead])
+				//TODO get dns IP address on pod.
+				t := []string{"yahoo.com", pod.Spec.DNSConfig.Nameservers[0]}
+
+				if stringInSlice(output, t) {
+					fmt.Print(output)
+					break
+				}
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
@@ -123,7 +133,7 @@ func testNoRecordDeployment() {
 }
 
 func TestAll(t *testing.T) {
-	g := NewWithT(t)
+	g = NewWithT(t)
 	env := envtest.Environment{
 		UseExistingCluster: boolPointer(true),
 	}
