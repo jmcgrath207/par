@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
+	"github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+
 	//appsv1 "k8s.io/api/apps/v1"
 	"os"
 	"testing"
@@ -14,6 +18,7 @@ import (
 	//corev1 "k8s.io/api/core/v1"
 	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/client-go/kubernetes"
 	//"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,34 +29,34 @@ import (
 // REF: https://github.com/superorbital/random-number-controller
 
 var (
-	timeout  = time.Second * 10
-	duration = time.Second * 10
-	interval = time.Millisecond * 250
+	timeout   = time.Second * 10
+	duration  = time.Second * 10
+	interval  = time.Millisecond * 250
+	clientset *kubernetes.Clientset
+	k8sClient client.Client
+	g         *gomega.WithT
 )
+
+func TestMain(m *testing.M) {
+	exitCode := m.Run()
+	os.Exit(exitCode)
+}
 
 func boolPointer(b bool) *bool {
 	return &b
 }
 
-func TestDeployments(t *testing.T) {
-
-	g := NewWithT(t)
-
-	env := envtest.Environment{
-		UseExistingCluster: boolPointer(true),
-	}
-	config, err := env.Start()
+func cleanupResource(object client.Object) {
+	err := k8sClient.Delete(context.TODO(), object)
 	g.Expect(err).ToNot(HaveOccurred())
+}
+
+func addArecord() *dnsv1.Arecord {
 	dnsv1.AddToScheme(scheme.Scheme)
-	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
-	g.Expect(err).ToNot(HaveOccurred())
-
-	// Add Read Yaml of Arecord and convert to type dnsv1.Arecord
-
-	yamlFile, err := os.ReadFile("./resources/test_dns_v1_arecord.yaml")
+	yamlFile, err := os.ReadFile("../resources/test_dns_v1_arecord.yaml")
 	if err != nil {
 		fmt.Println(err)
-		return
+		panic(err)
 	}
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 
@@ -61,44 +66,73 @@ func TestDeployments(t *testing.T) {
 		fmt.Printf("%#v", err)
 	}
 	g.Expect(k8sClient.Create(context.TODO(), aRecord)).Should(Succeed())
+	return aRecord
+}
 
-	// Read Yaml of deployment create a test deployment
+func createDeployment(deploymentPath string) *appsv1.Deployment {
+	yamlFile, err := os.ReadFile(deploymentPath)
+	if err != nil {
+		fmt.Println(err)
+	}
+	decode := scheme.Codecs.UniversalDeserializer().Decode
 
-	// Add Read Yaml of Arecord and convert to type dnsv1.Arecord
+	deployment := &appsv1.Deployment{}
+	_, _, err = decode(yamlFile, nil, deployment)
+	if err != nil {
+		fmt.Printf("%#v", err)
+	}
+	g.Expect(k8sClient.Create(context.TODO(), deployment)).Should(Succeed())
+	return deployment
+}
 
-	//yamlFile, err = os.ReadFile("./resources/test_a_record_deployment.yaml")
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return
-	//}
-	//decode = scheme.Codecs.UniversalDeserializer().Decode
-	//
-	//testDeployment := &appsv1.Deployment{}
-	//_, _, err = decode(yamlFile, nil, testDeployment)
-	//if err != nil {
-	//	fmt.Printf("%#v", err)
-	//}
-	//
-	//g.Eventually(func() bool {
-	//	err = k8sClient.Get(context.TODO(), cmObjectKey, &configMap)
-	//
-	//	if err != nil {
-	//		return false
-	//	}
-	//	return true
-	//}, timeout, interval).Should(BeTrue())
+func testNoRecordDeployment() {
+	deployment := createDeployment("../resources/test_no_record_deployment.yaml")
+	defer cleanupResource(deployment)
+	podList := v1.PodList{}
+	opts := []client.ListOption{
+		client.InNamespace("default"),
+		client.MatchingLabels(deployment.Spec.Template.ObjectMeta.Labels),
+	}
+	k8sClient.List(context.TODO(), &podList, opts...)
 
-	err = k8sClient.Delete(context.TODO(), aRecord)
+	for _, pod := range podList.Items {
+		req := clientset.CoreV1().Pods(namespace).GetLogs(pod.Name, &v1.PodLogOptions{
+			Container: "",
+		})
+		podLogs, err := req.Stream(context.Background())
+		if err != nil {
+			logger.Error(err, "unable to get pod logs")
+			os.Exit(1)
+		}
+		defer podLogs.Close()
+
+		// Read the logs into a buffer
+		buffer := make([]byte, 1024)
+		for {
+			bytesRead, err := podLogs.Read(buffer)
+			if err != nil {
+				logger.Error(err, "unable to read pod logs")
+				break
+			}
+			if bytesRead > 0 {
+				fmt.Print(string(buffer[:bytesRead]))
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+}
+
+func TestAll(t *testing.T) {
+	g := NewWithT(t)
+	env := envtest.Environment{
+		UseExistingCluster: boolPointer(true),
+	}
+
+	config, err := env.Start()
+	clientset, err = kubernetes.NewForConfig(config)
+	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
 	g.Expect(err).ToNot(HaveOccurred())
-
-	// cleanup
-	//g.Eventually(func() bool {
-	//	var configMapDeleted corev1.ConfigMap
-	//	err = k8sClient.Get(context.TODO(), cmObjectKey, &configMapDeleted)
-	//	if err == nil {
-	//		return false
-	//	}
-	//	return errors.IsNotFound(err)
-	//}, timeout, interval).Should(BeTrue())
-
+	arecord := addArecord()
+	defer cleanupResource(arecord)
+	testNoRecordDeployment()
 }

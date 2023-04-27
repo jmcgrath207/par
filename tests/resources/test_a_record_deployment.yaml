@@ -4,6 +4,7 @@ metadata:
   name: example-deployment-a-record
   labels:
     app: example
+  namespace: default
 spec:
   replicas: 1
   selector:
