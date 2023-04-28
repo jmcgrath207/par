@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 )
 
 // REF: https://superorbital.io/blog/testing-production-controllers/
@@ -38,15 +39,6 @@ func TestMain(m *testing.M) {
 
 func boolPointer(b bool) *bool {
 	return &b
-}
-
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }
 
 func cleanupResource(object client.Object) {
@@ -122,10 +114,16 @@ func testNoRecordDeployment() {
 				//TODO get dns IP address on pod.
 				t := []string{"yahoo.com", pod.Spec.DNSConfig.Nameservers[0]}
 
-				if stringInSlice(output, t) {
-					fmt.Print(output)
-					break
+				for _, a := range t {
+					if strings.Contains(output, a) {
+						continue
+
+					} else {
+						panic(fmt.Sprintf("Output doesn't container %v", a))
+					}
+
 				}
+
 			}
 			time.Sleep(100 * time.Millisecond)
 		}

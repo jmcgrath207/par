@@ -19,9 +19,9 @@ package arecord
 import (
 	"context"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
+	"github.com/jmcgrath207/par/controllers/deployment"
 	"github.com/jmcgrath207/par/proxy"
 	"github.com/jmcgrath207/par/storage"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,8 +61,6 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, err
 	}
-	//log.FromContext(ctx).Info("Reconciling A record", "A record",
-	//	aRecord.Spec.HostName, aRecord.Spec.IPAddress, aRecord.Spec.Namespace, aRecord.Spec.Labels)
 
 	log.FromContext(ctx).Info("Reconciling A record", "A record",
 		aRecord.Spec.HostName, "IP address", aRecord.Spec.IPAddress, "Namespace", aRecord.Spec.Namespace, "Labels", aRecord.Spec.Labels)
@@ -83,28 +81,18 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		log.FromContext(ctx).Error(err, "could not find par manager service", "namespace", namespace)
 	}
+	msg := storage.ArecordQueueBody{ARecord: aRecord, DnsServerIP: serviceList.Items[0].Spec.ClusterIP}
+	storage.ArecordQueue.Push(msg)
+
+	if err = (&deployment.DeploymentReconciler{
+		Client: storage.Mgr.GetClient(),
+		Scheme: storage.Mgr.GetScheme(),
+	}).SetupWithManager(storage.Mgr); err != nil {
+		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment")
+		os.Exit(1)
+	}
+
 	log.FromContext(ctx).Info("found service par manager service", "service", serviceList.Items[0].Spec.ClusterIP)
-
-	var deployments appsv1.DeploymentList
-
-	// Get all deployments that match the labels and namespace in the A record
-	opts = []client.ListOption{
-		client.InNamespace(aRecord.Spec.Namespace),
-		client.MatchingLabels(aRecord.Spec.Labels),
-	}
-
-	log.FromContext(ctx).Info("searching for deployments with labels", "labels", aRecord.Spec.Labels, "namespace", aRecord.Spec.Namespace)
-	err = r.List(ctx, &deployments, opts...)
-	if err != nil {
-		log.FromContext(ctx).Error(err, "could not find deployments with labels", "labels", aRecord.Spec.Labels, "namespace", aRecord.Spec.Namespace)
-		return ctrl.Result{}, err
-	}
-
-	// Update the deployment's DNS server to point to the service IP address of the Manager
-	for _, deployment := range deployments.Items {
-		log.FromContext(ctx).Info("found client deployment", "deployment", deployment.Name)
-		r.UpdateDnsClient(deployment, serviceList.Items[0].Spec.ClusterIP)
-	}
 
 	storage.SetRecord("A", aRecord.Spec.HostName, aRecord.Spec.IPAddress)
 
@@ -118,42 +106,6 @@ func (r *ArecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dnsv1.Arecord{}).
 		Complete(r)
-}
-
-func (r *ArecordReconciler) UpdateDnsClient(deployment appsv1.Deployment, dnsIP string) {
-	// Update Pods DNS server it points to the service IP address of the Manager
-	// TODO: Check in memory cache first if these labels have already been processed.
-
-	deploymentClone := deployment.DeepCopy()
-
-	// Add a new DNS configuration to the deployment's pod template with the updated IP address.
-	deploymentClone.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
-		Nameservers: []string{dnsIP},
-	}
-
-	deploymentClone.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
-	log.FromContext(context.Background()).Info("updating deployment dns policy to point to service dnsIP of par manager", "deployment", deploymentClone.Name, "dnsIP", dnsIP)
-	err := r.Patch(context.TODO(), deploymentClone, client.MergeFrom(&deployment))
-	if err != nil {
-		log.FromContext(context.Background()).Error(err, "could not update deployment dns policy to point to service dnsIP of par manager", "deployment", deploymentClone.Name, "dnsIP", dnsIP)
-		panic(err)
-	}
-	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager", "deployment", deploymentClone.Name, "dnsIP", dnsIP)
-
-}
-
-func (r *ArecordReconciler) HostAlias(ctx context.Context, deployment appsv1.Deployment, aRecord dnsv1.Arecord) {
-	// Update the deployment object's hostAliases field
-	deployment.Spec.Template.Spec.HostAliases = []corev1.HostAlias{
-		{
-			IP:        aRecord.Spec.IPAddress,
-			Hostnames: []string{aRecord.Spec.HostName},
-		},
-	}
-
-	if err := r.Client.Update(ctx, &deployment); err != nil {
-		panic(err)
-	}
 }
 
 //func getPodByIP(client client.Client, podIP string) (*corev1.Pod, error) {

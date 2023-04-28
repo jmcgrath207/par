@@ -18,11 +18,11 @@ import (
 var k8sClient client.Client
 var namespace []byte
 
-func Start(clientK8s client.Client) {
+func Start() {
 	namespace, _ = os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	// TODO: keeps on requests are cluster level and not namespaced
+	// TODO: keeps on requests are cluster level and not namespaced in RBAC rules
 	//k8sClient = clientK8s
-	k8sClient = client.NewNamespacedClient(clientK8s, string(namespace))
+	k8sClient = client.NewNamespacedClient(storage.ClientK8s, string(namespace))
 }
 
 func SetProxyServiceIP(optsClient []client.ListOption) {

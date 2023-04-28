@@ -23,8 +23,6 @@ import (
 	"github.com/jmcgrath207/par/dns"
 	"github.com/jmcgrath207/par/proxy"
 	"github.com/jmcgrath207/par/storage"
-
-	//"github.com/jmcgrath207/par/helm"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -104,9 +102,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	storage.Start()
+	storage.Start(mgr)
 	go dns.Start()
-	go proxy.Start(mgr.GetClient())
+	go proxy.Start()
 
 	if err = (&arecord.ArecordReconciler{
 		Client: mgr.GetClient(),
@@ -115,6 +113,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Arecord")
 		os.Exit(1)
 	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
