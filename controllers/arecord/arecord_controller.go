@@ -62,6 +62,8 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	//TODO add a UUID annotation so we can reference them to a existing deployment upon lookup
+
 	log.FromContext(ctx).Info("Reconciling A record", "A record",
 		aRecord.Spec.HostName, "IP address", aRecord.Spec.IPAddress, "Namespace", aRecord.Spec.Namespace, "Labels", aRecord.Spec.Labels)
 
@@ -87,7 +89,7 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err = (&deployment.DeploymentReconciler{
 		Client: storage.Mgr.GetClient(),
 		Scheme: storage.Mgr.GetScheme(),
-	}).SetupWithManager(storage.Mgr); err != nil {
+	}).SetupWithManager(storage.Mgr, aRecord); err != nil {
 		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment")
 		os.Exit(1)
 	}

@@ -20,6 +20,7 @@ func Start(mgr ctrl.Manager) {
 	ProxyReady = make(chan bool)
 	ArecordQueue = arecordQueue{elements: make(chan ArecordQueueBody, 32)}
 	ClientK8s = mgr.GetClient()
+	Mgr = mgr
 }
 
 func SetRecord(recordType string, hostname string, data string) {

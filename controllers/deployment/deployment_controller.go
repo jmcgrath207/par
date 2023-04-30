@@ -7,9 +7,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 type DeploymentReconciler struct {
@@ -17,16 +20,41 @@ type DeploymentReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// Define a predicate function to filter out unwanted events
+func deploymentPredicate(aRecord dnsv1.Arecord) predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			if aRecord.Spec.Namespace == e.Object.GetNamespace() {
+				if reflect.DeepEqual(aRecord.Spec.Labels, e.Object.GetLabels()) {
+					return true
+				}
+			}
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if aRecord.Spec.Namespace == e.ObjectNew.GetNamespace() {
+				if reflect.DeepEqual(aRecord.Spec.Labels, e.ObjectNew.GetLabels()) {
+					return true
+				}
+			}
+			return false
+		},
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
-func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, aRecord dnsv1.Arecord) error {
 	// TODO: filter on namespace and labels
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}).
+		Named("asdfasdf").
+		WithEventFilter(deploymentPredicate(aRecord)).
 		Complete(w)
 }
 
 func (w *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
+	// TODO: Added a UUID annotation on deployments that we look up to see if it's associated with a existing aRecord
+	// after processing a New Deployment.
 	msg := storage.ArecordQueue.Pop()
 	aRecord := msg.ARecord
 	dnsServerIP := msg.DnsServerIP
