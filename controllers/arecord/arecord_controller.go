@@ -18,6 +18,7 @@ package arecord
 
 import (
 	"context"
+	"fmt"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
 	"github.com/jmcgrath207/par/controllers/deployment"
 	"github.com/jmcgrath207/par/proxy"
@@ -25,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,6 +65,9 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	//TODO add a UUID annotation so we can reference them to a existing deployment upon lookup
+	if aRecord.Spec.RecordId == "" {
+		aRecord.Spec.RecordId = string(uuid.NewUUID())
+	}
 
 	log.FromContext(ctx).Info("Reconciling A record", "A record",
 		aRecord.Spec.HostName, "IP address", aRecord.Spec.IPAddress, "Namespace", aRecord.Spec.Namespace, "Labels", aRecord.Spec.Labels)
@@ -83,8 +88,9 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		log.FromContext(ctx).Error(err, "could not find par manager service", "namespace", namespace)
 	}
-	msg := storage.ArecordQueueBody{ARecord: aRecord, DnsServerIP: serviceList.Items[0].Spec.ClusterIP}
-	storage.ArecordQueue.Push(msg)
+	aRecord.Spec.ManagerAddress = serviceList.Items[0].Spec.ClusterIP
+	r.Update(context.TODO(), &aRecord)
+	storage.ArecordMap[fmt.Sprintf("Map: %v", aRecord.Spec.Labels)] = aRecord
 
 	if err = (&deployment.DeploymentReconciler{
 		Client: storage.Mgr.GetClient(),

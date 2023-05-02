@@ -28,11 +28,13 @@ type ArecordSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Namespace string            `json:"namespace,omitempty"`
-	Labels    map[string]string `json:"labels,omitempty"`
-	Type      string            `json:"type,omitempty"`
-	HostName  string            `json:"hostname,omitempty"`
-	IPAddress string            `json:"ip-address,omitempty"`
+	Namespace      string            `json:"namespace,omitempty"`
+	Labels         map[string]string `json:"labels,omitempty"`
+	Type           string            `json:"type,omitempty"`
+	HostName       string            `json:"hostname,omitempty"`
+	IPAddress      string            `json:"ip-address,omitempty"`
+	ManagerAddress string            `json:"manager-address,omitempty"`
+	RecordId       string            `json:"record-id,omitempty"`
 }
 
 // ArecordStatus defines the observed state of Arecord

@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
 	"github.com/jmcgrath207/par/storage"
 	appsv1 "k8s.io/api/apps/v1"
@@ -53,34 +54,32 @@ func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, aRecord dnsv1.
 }
 
 func (w *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// TODO: Added a UUID annotation on deployments that we look up to see if it's associated with a existing aRecord
 	// after processing a New Deployment.
-	msg := storage.ArecordQueue.Pop()
-	aRecord := msg.ARecord
-	dnsServerIP := msg.DnsServerIP
-	if dnsServerIP == "" {
+	deployment := &appsv1.Deployment{}
+	aRecord := dnsv1.Arecord{}
+
+	w.Get(ctx, req.NamespacedName, deployment)
+	deploymentAnnotations := deployment.GetAnnotations()
+	value, ok := deploymentAnnotations["par.dev/recordId"]
+	if !ok {
+		// TODO: work on Arecord Map lookup to get DNS Manager Address.
+		aRecord = storage.ArecordMap
+		UpdateDnsClient(*deployment, aRecord.Spec.ManagerAddress)
 		return ctrl.Result{}, nil
 	}
 
-	var deployments appsv1.DeploymentList
-
-	// Get all deployments that match the labels and namespace in the A record
-	opts := []client.ListOption{
-		client.InNamespace(aRecord.Spec.Namespace),
-		client.MatchingLabels(aRecord.Spec.Labels),
+	aRecordList := dnsv1.ArecordList{}
+	// Create a client.MatchingLabels object with the annotation key and value
+	fieldSelector := client.MatchingFields{
+		"metadata.annotations": fmt.Sprintf("%s=%s", "par.dev/recordId", value),
 	}
-
-	log.FromContext(ctx).Info("searching for deployments with labels", "labels", aRecord.Spec.Labels, "namespace", aRecord.Spec.Namespace)
-	err := w.List(ctx, &deployments, opts...)
+	err := w.List(ctx, &aRecordList, fieldSelector)
 	if err != nil {
-		log.FromContext(ctx).Error(err, "could not find deployments with labels", "labels", aRecord.Spec.Labels, "namespace", aRecord.Spec.Namespace)
+		//log.FromContext(ctx).Error(err, "could not find deployments with labels", "labels", aRecord.Spec.Labels, "namespace", aRecord.Spec.Namespace)
 		return ctrl.Result{}, err
 	}
-
-	// Update the deployment's DNS server to point to the service IP address of the Manager
-	for _, deployment := range deployments.Items {
-		log.FromContext(ctx).Info("found client deployment", "deployment", deployment.Name)
-		UpdateDnsClient(deployment, dnsServerIP)
+	for _, aRecord = range aRecordList.Items {
+		UpdateDnsClient(*deployment, aRecord.Spec.ManagerAddress)
 	}
 	return ctrl.Result{}, nil
 

@@ -43,7 +43,11 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              manager-address:
+                type: string
               namespace:
+                type: string
+              record-id:
                 type: string
               type:
                 type: string
