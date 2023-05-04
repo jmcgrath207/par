@@ -18,7 +18,6 @@ package arecord
 
 import (
 	"context"
-	"fmt"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
 	"github.com/jmcgrath207/par/controllers/deployment"
 	"github.com/jmcgrath207/par/proxy"
@@ -90,7 +89,6 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	aRecord.Spec.ManagerAddress = serviceList.Items[0].Spec.ClusterIP
 	r.Update(context.TODO(), &aRecord)
-	storage.ArecordMap[fmt.Sprintf("Map: %v", aRecord.Spec.Labels)] = aRecord
 
 	if err = (&deployment.DeploymentReconciler{
 		Client: storage.Mgr.GetClient(),

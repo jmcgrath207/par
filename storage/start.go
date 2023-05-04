@@ -1,7 +1,6 @@
 package storage
 
 import (
-	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
 	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -9,7 +8,6 @@ import (
 
 var (
 	RecordMap     = map[string]map[string]string{}
-	ArecordMap    = map[string]dnsv1.Arecord{}
 	SourceHostMap = map[string]net.IP{}
 	ProxyReady    chan bool
 	ClientK8s     client.Client

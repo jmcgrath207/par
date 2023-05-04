@@ -16,25 +16,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
+var recordMap = map[string]dnsv1.Arecord{}
+
 type DeploymentReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme  *runtime.Scheme
+	aRecord dnsv1.Arecord
 }
 
 // Define a predicate function to filter out unwanted events
-func deploymentPredicate(aRecord dnsv1.Arecord) predicate.Predicate {
+func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			if aRecord.Spec.Namespace == e.Object.GetNamespace() {
-				if reflect.DeepEqual(aRecord.Spec.Labels, e.Object.GetLabels()) {
+			if w.aRecord.Spec.Namespace == e.Object.GetNamespace() {
+				if reflect.DeepEqual(w.aRecord.Spec.Labels, e.Object.GetLabels()) {
 					return true
 				}
 			}
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if aRecord.Spec.Namespace == e.ObjectNew.GetNamespace() {
-				if reflect.DeepEqual(aRecord.Spec.Labels, e.ObjectNew.GetLabels()) {
+			if w.aRecord.Spec.Namespace == e.ObjectNew.GetNamespace() {
+				if reflect.DeepEqual(w.aRecord.Spec.Labels, e.ObjectNew.GetLabels()) {
 					return true
 				}
 			}
@@ -45,41 +48,52 @@ func deploymentPredicate(aRecord dnsv1.Arecord) predicate.Predicate {
 
 // SetupWithManager sets up the controller with the Manager.
 func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, aRecord dnsv1.Arecord) error {
-	// TODO: filter on namespace and labels
+	w.aRecord = aRecord
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}).
-		Named("asdfasdf").
-		WithEventFilter(deploymentPredicate(aRecord)).
+		Named(aRecord.Name).
+		WithEventFilter(w.deploymentPredicate()).
 		Complete(w)
 }
 
 func (w *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// after processing a New Deployment.
 	deployment := &appsv1.Deployment{}
-	aRecord := dnsv1.Arecord{}
 
 	w.Get(ctx, req.NamespacedName, deployment)
 	deploymentAnnotations := deployment.GetAnnotations()
 	value, ok := deploymentAnnotations["par.dev/recordId"]
 	if !ok {
-		// TODO: work on Arecord Map lookup to get DNS Manager Address.
-		aRecord = storage.ArecordMap
+		// New Deployment
+		UpdateDnsClient(*deployment, w.aRecord.Spec.ManagerAddress)
+		return ctrl.Result{}, nil
+	}
+
+	// Existing Deployment Check if in Map
+
+	aRecord := dnsv1.Arecord{}
+	recordIdAnnotation := fmt.Sprintf("%s=%s", "par.dev/recordId", value)
+	aRecord, ok = recordMap["recordIdAnnotation"]
+
+	if ok {
 		UpdateDnsClient(*deployment, aRecord.Spec.ManagerAddress)
 		return ctrl.Result{}, nil
 	}
+	// Find Arecord to update deployment
 
 	aRecordList := dnsv1.ArecordList{}
 	// Create a client.MatchingLabels object with the annotation key and value
 	fieldSelector := client.MatchingFields{
-		"metadata.annotations": fmt.Sprintf("%s=%s", "par.dev/recordId", value),
+		"metadata.annotations": recordIdAnnotation,
 	}
 	err := w.List(ctx, &aRecordList, fieldSelector)
 	if err != nil {
-		//log.FromContext(ctx).Error(err, "could not find deployments with labels", "labels", aRecord.Spec.Labels, "namespace", aRecord.Spec.Namespace)
 		return ctrl.Result{}, err
 	}
+	aRecord = dnsv1.Arecord{}
 	for _, aRecord = range aRecordList.Items {
 		UpdateDnsClient(*deployment, aRecord.Spec.ManagerAddress)
+		recordMap[recordIdAnnotation] = aRecord
 	}
 	return ctrl.Result{}, nil
 
