@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"context"
-	"fmt"
 	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
 	"github.com/jmcgrath207/par/storage"
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,8 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
-
-var recordMap = map[string]dnsv1.Arecord{}
 
 type DeploymentReconciler struct {
 	client.Client
@@ -59,49 +56,12 @@ func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, aRecord dnsv1.
 func (w *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// after processing a New Deployment.
 	deployment := &appsv1.Deployment{}
-
 	w.Get(ctx, req.NamespacedName, deployment)
-	deploymentAnnotations := deployment.GetAnnotations()
-	value, ok := deploymentAnnotations["par.dev/recordId"]
-	if !ok {
-		// New Deployment
-		UpdateDnsClient(*deployment, w.aRecord.Spec.ManagerAddress)
-		return ctrl.Result{}, nil
-	}
-
-	// Existing Deployment Check if in Map
-
-	aRecord := dnsv1.Arecord{}
-	recordIdAnnotation := fmt.Sprintf("%s=%s", "par.dev/recordId", value)
-	aRecord, ok = recordMap["recordIdAnnotation"]
-
-	if ok {
-		UpdateDnsClient(*deployment, aRecord.Spec.ManagerAddress)
-		return ctrl.Result{}, nil
-	}
-	// Find Arecord to update deployment
-
-	aRecordList := dnsv1.ArecordList{}
-	// Create a client.MatchingLabels object with the annotation key and value
-	fieldSelector := client.MatchingFields{
-		"metadata.annotations": recordIdAnnotation,
-	}
-	err := w.List(ctx, &aRecordList, fieldSelector)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	aRecord = dnsv1.Arecord{}
-	for _, aRecord = range aRecordList.Items {
-		UpdateDnsClient(*deployment, aRecord.Spec.ManagerAddress)
-		recordMap[recordIdAnnotation] = aRecord
-	}
+	UpdateDnsClient(*deployment, w.aRecord.Spec.ManagerAddress)
 	return ctrl.Result{}, nil
-
 }
-func UpdateDnsClient(deployment appsv1.Deployment, dnsIP string) {
-	// Update Pods DNS server it points to the service IP address of the Manager
-	// TODO: Check in memory cache first if these labels have already been processed.
 
+func UpdateDnsClient(deployment appsv1.Deployment, dnsIP string) {
 	deploymentClone := deployment.DeepCopy()
 
 	// Add a new DNS configuration to the deployment's pod template with the updated IP address.

@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,6 +36,8 @@ type ArecordReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
+
+var managerAddress string
 
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/status,verbs=get;update;patch
@@ -62,56 +63,82 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, err
 	}
-
-	//TODO add a UUID annotation so we can reference them to a existing deployment upon lookup
-	if aRecord.Spec.RecordId == "" {
-		aRecord.Spec.RecordId = string(uuid.NewUUID())
+	if aRecord.Spec.ManagerAddress == "" {
+		r.UpdateArecord(aRecord)
 	}
+	return ctrl.Result{}, nil
+}
 
-	log.FromContext(ctx).Info("Reconciling A record", "A record",
-		aRecord.Spec.HostName, "IP address", aRecord.Spec.IPAddress, "Namespace", aRecord.Spec.Namespace, "Labels", aRecord.Spec.Labels)
+// SetupWithManager sets up the controller with the Manager.
+func (r *ArecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// TODO: Doesn't seem to work until  NewControllerManagedBy is called.
+	// Could be timing issues.
+	r.SetManagerAddress()
+	r.BackFillArecords()
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&dnsv1.Arecord{}).
+		Complete(r)
+}
 
-	// Find all services that match the labels in of par.dev/manager: true
-	serviceList := &corev1.ServiceList{}
-	namespace, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+func (r *ArecordReconciler) BackFillArecords() (ctrl.Result, error) {
+	// Gather existing Arecords in cluster and create a controller for them
+	aRecordList := dnsv1.ArecordList{}
+	// Create a client.MatchingLabels object with the annotation key and value
+	err := r.List(context.TODO(), &aRecordList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	opts := []client.ListOption{
-		client.InNamespace(namespace),
-		client.MatchingLabels(map[string]string{"par.dev/manager": "true"}),
+	aRecord := dnsv1.Arecord{}
+	for _, aRecord = range aRecordList.Items {
+		if aRecord.Spec.ManagerAddress != "" {
+			r.UpdateArecord(aRecord)
+		}
 	}
-	log.FromContext(ctx).Info("searching for par manager service", "namespace", namespace)
+	return ctrl.Result{}, nil
+}
 
-	err = r.List(ctx, serviceList, opts...)
-	if err != nil {
-		log.FromContext(ctx).Error(err, "could not find par manager service", "namespace", namespace)
-	}
-	aRecord.Spec.ManagerAddress = serviceList.Items[0].Spec.ClusterIP
-	r.Update(context.TODO(), &aRecord)
-
-	if err = (&deployment.DeploymentReconciler{
+func (r *ArecordReconciler) InvokeDeploymentManager(ctx context.Context, aRecord dnsv1.Arecord) {
+	if err := (&deployment.DeploymentReconciler{
 		Client: storage.Mgr.GetClient(),
 		Scheme: storage.Mgr.GetScheme(),
 	}).SetupWithManager(storage.Mgr, aRecord); err != nil {
 		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment")
 		os.Exit(1)
 	}
-
-	log.FromContext(ctx).Info("found service par manager service", "service", serviceList.Items[0].Spec.ClusterIP)
-
-	storage.SetRecord("A", aRecord.Spec.HostName, aRecord.Spec.IPAddress)
-
-	proxy.SetProxyServiceIP(opts)
-
-	return ctrl.Result{}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *ArecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&dnsv1.Arecord{}).
-		Complete(r)
+func (r *ArecordReconciler) SetManagerAddress() {
+
+	// Find all services that match the labels in of par.dev/manager: true
+	serviceList := &corev1.ServiceList{}
+	namespace, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		panic(err)
+	}
+	opts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(map[string]string{"par.dev/manager": "true"}),
+	}
+	log.FromContext(context.Background()).Info("searching for par manager service", "namespace", namespace)
+
+	err = r.List(context.Background(), serviceList, opts...)
+	if err != nil {
+		log.FromContext(context.Background()).Error(err, "could not find par manager service", "namespace", namespace)
+		panic(err)
+	}
+	managerAddress = serviceList.Items[0].Spec.ClusterIP
+	log.FromContext(context.Background()).Info("found service par manager service", "service", serviceList.Items[0].Spec.ClusterIP)
+	proxy.SetProxyServiceIP(opts)
+}
+
+func (r *ArecordReconciler) UpdateArecord(aRecord dnsv1.Arecord) {
+	aRecord.Spec.ManagerAddress = managerAddress
+	storage.SetRecord("A", aRecord.Spec.HostName, aRecord.Spec.IPAddress)
+	r.Update(context.TODO(), &aRecord)
+	log.FromContext(context.Background()).Info("Reconciling A record", "A record",
+		aRecord.Spec.HostName, "IP address", aRecord.Spec.IPAddress,
+		"Namespace", aRecord.Spec.Namespace, "Labels", aRecord.Spec.Labels)
+	r.InvokeDeploymentManager(context.Background(), aRecord)
 }
 
 //func getPodByIP(client client.Client, podIP string) (*corev1.Pod, error) {
