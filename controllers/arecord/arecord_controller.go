@@ -38,6 +38,7 @@ type ArecordReconciler struct {
 }
 
 var managerAddress string
+var initReconcile int
 
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=dns.par.dev,resources=arecords/status,verbs=get;update;patch
@@ -53,6 +54,14 @@ var managerAddress string
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
+	// Needs to happen here since the Read Cache of the client vaild until Reconcile is Invoked.
+	// https://sdk.operatorframework.io/docs/building-operators/golang/references/client/#default-client
+	if initReconcile == 0 {
+		r.SetManagerAddress(ctx)
+		r.BackFillArecords(ctx)
+		initReconcile = 1
+	}
+
 	var aRecord dnsv1.Arecord
 
 	if err := r.Get(ctx, req.NamespacedName, &aRecord); err != nil {
@@ -64,7 +73,7 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 	if aRecord.Spec.ManagerAddress == "" {
-		r.UpdateArecord(aRecord)
+		r.UpdateArecord(ctx, aRecord)
 	}
 	return ctrl.Result{}, nil
 }
@@ -73,25 +82,23 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *ArecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// TODO: Doesn't seem to work until  NewControllerManagedBy is called.
 	// Could be timing issues.
-	r.SetManagerAddress()
-	r.BackFillArecords()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dnsv1.Arecord{}).
 		Complete(r)
 }
 
-func (r *ArecordReconciler) BackFillArecords() (ctrl.Result, error) {
+func (r *ArecordReconciler) BackFillArecords(ctx context.Context) (ctrl.Result, error) {
 	// Gather existing Arecords in cluster and create a controller for them
 	aRecordList := dnsv1.ArecordList{}
 	// Create a client.MatchingLabels object with the annotation key and value
-	err := r.List(context.TODO(), &aRecordList)
+	err := r.List(ctx, &aRecordList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	aRecord := dnsv1.Arecord{}
 	for _, aRecord = range aRecordList.Items {
 		if aRecord.Spec.ManagerAddress != "" {
-			r.UpdateArecord(aRecord)
+			r.UpdateArecord(ctx, aRecord)
 		}
 	}
 	return ctrl.Result{}, nil
@@ -107,7 +114,7 @@ func (r *ArecordReconciler) InvokeDeploymentManager(ctx context.Context, aRecord
 	}
 }
 
-func (r *ArecordReconciler) SetManagerAddress() {
+func (r *ArecordReconciler) SetManagerAddress(ctx context.Context) {
 
 	// Find all services that match the labels in of par.dev/manager: true
 	serviceList := &corev1.ServiceList{}
@@ -121,7 +128,7 @@ func (r *ArecordReconciler) SetManagerAddress() {
 	}
 	log.FromContext(context.Background()).Info("searching for par manager service", "namespace", namespace)
 
-	err = r.List(context.Background(), serviceList, opts...)
+	err = r.List(ctx, serviceList, opts...)
 	if err != nil {
 		log.FromContext(context.Background()).Error(err, "could not find par manager service", "namespace", namespace)
 		panic(err)
@@ -131,19 +138,19 @@ func (r *ArecordReconciler) SetManagerAddress() {
 	proxy.SetProxyServiceIP(opts)
 }
 
-func (r *ArecordReconciler) UpdateArecord(aRecord dnsv1.Arecord) {
+func (r *ArecordReconciler) UpdateArecord(ctx context.Context, aRecord dnsv1.Arecord) {
 	aRecord.Spec.ManagerAddress = managerAddress
 	storage.SetRecord("A", aRecord.Spec.HostName, aRecord.Spec.IPAddress)
-	r.Update(context.TODO(), &aRecord)
+	r.Update(ctx, &aRecord)
 	log.FromContext(context.Background()).Info("Reconciling A record", "A record",
 		aRecord.Spec.HostName, "IP address", aRecord.Spec.IPAddress,
 		"Namespace", aRecord.Spec.Namespace, "Labels", aRecord.Spec.Labels)
-	r.InvokeDeploymentManager(context.Background(), aRecord)
+	r.InvokeDeploymentManager(ctx, aRecord)
 }
 
 //func getPodByIP(client client.Client, podIP string) (*corev1.Pod, error) {
 //	podList := &corev1.PodList{}
-//	err := client.List(context.Background(), podList)
+//	err := client.List(ctx, podList)
 //	if err != nil {
 //		return nil, err
 //	}
