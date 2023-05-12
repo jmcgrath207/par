@@ -40,20 +40,22 @@ function main() {
 
   helm install nginx nginx/nginx -f tests/resources/test_proxy.yaml -n par
 
-  # Background log following for manager
-  ( sleep 10 ; printf "\n\n" && while :; do kubectl logs -n par -l par.dev/manager="true" -f || sleep 5; done) &
 
   if [[ $ENV == "debug" ]]; then
+  # Background log following for manager
+    ( sleep 10 ; printf "\n\n" && while :; do kubectl logs -n par -l par.dev/manager="true" -f || sleep 5; done) &
     add_test_clients
     kubectl port-forward -n par service/par-manager-debug 30002:9999
   elif [[ $ENV == "e2e" ]]; then
     ${LOCALBIN}/setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir ${LOCALBIN} -p path
-    go test ./tests/e2e/... -coverprofile cover.out
+    ginkgo -v ./tests/e2e/... -coverprofile cover.out
   elif [[ $ENV == "e2e-debug" ]]; then
     ${LOCALBIN}/setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir ${LOCALBIN} -p path
     sleep infinity
   else
     # Assume make local deploy
+    # Background log following for manager
+    ( sleep 10 ; printf "\n\n" && while :; do kubectl logs -n par -l par.dev/manager="true" -f || sleep 5; done) &
     add_test_clients
     sleep infinity
   fi

@@ -160,10 +160,11 @@ $(ENVTEST): $(LOCALBIN)
 ### Custom Commands ###
 .EXPORT_ALL_VARIABLES:
 
-.PHONY: helmify
-helmify: $(HELMIFY) ## Download helmify locally if necessary.
-$(HELMIFY): $(LOCALBIN)
+helmify:
 	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@latest
+
+ginkgo:
+	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@2.9.4
 
 helm: manifests generate fmt vet kustomize helmify
 	rm -r chart
@@ -175,12 +176,12 @@ create_kind:
 deploy_debug: helm create_kind
 	ENV='debug' ./scripts/deploy.sh
 
-deploy_e2e_debug: helm envtest create_kind
+deploy_e2e_debug: helm envtest ginkgo create_kind
 	ENV='e2e-debug' ./scripts/deploy.sh
 
 deploy_local: helm create_kind
 	./scripts/deploy.sh
 
-deploy_e2e: helm envtest create_kind
+deploy_e2e: helm envtest ginkgo create_kind
 	ENV='e2e' ./scripts/deploy.sh
 

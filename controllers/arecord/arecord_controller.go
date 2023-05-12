@@ -126,15 +126,15 @@ func (r *ArecordReconciler) SetManagerAddress(ctx context.Context) {
 		client.InNamespace(namespace),
 		client.MatchingLabels(map[string]string{"par.dev/manager": "true"}),
 	}
-	log.FromContext(context.Background()).Info("searching for par manager service", "namespace", namespace)
+	log.FromContext(ctx).Info("searching for par manager service", "namespace", namespace)
 
 	err = r.List(ctx, serviceList, opts...)
 	if err != nil {
-		log.FromContext(context.Background()).Error(err, "could not find par manager service", "namespace", namespace)
+		log.FromContext(ctx).Error(err, "could not find par manager service", "namespace", namespace)
 		panic(err)
 	}
 	managerAddress = serviceList.Items[0].Spec.ClusterIP
-	log.FromContext(context.Background()).Info("found service par manager service", "service", serviceList.Items[0].Spec.ClusterIP)
+	log.FromContext(ctx).Info("found service par manager service", "service", serviceList.Items[0].Spec.ClusterIP)
 	proxy.SetProxyServiceIP(opts)
 }
 
@@ -142,7 +142,7 @@ func (r *ArecordReconciler) UpdateArecord(ctx context.Context, aRecord dnsv1.Are
 	aRecord.Spec.ManagerAddress = managerAddress
 	storage.SetRecord("A", aRecord.Spec.HostName, aRecord.Spec.IPAddress)
 	r.Update(ctx, &aRecord)
-	log.FromContext(context.Background()).Info("Reconciling A record", "A record",
+	log.FromContext(ctx).Info("Reconciling A record", "A record",
 		aRecord.Spec.HostName, "IP address", aRecord.Spec.IPAddress,
 		"Namespace", aRecord.Spec.Namespace, "Labels", aRecord.Spec.Labels)
 	r.InvokeDeploymentManager(ctx, aRecord)
