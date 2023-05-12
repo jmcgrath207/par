@@ -28,7 +28,6 @@ var (
 	interval  = time.Millisecond * 250
 	clientset *kubernetes.Clientset
 	k8sClient client.Client
-	g         *gomega.WithT
 	namespace = "default"
 )
 
@@ -38,7 +37,7 @@ func boolPointer(b bool) *bool {
 
 func cleanupResource(object client.Object) {
 	err := k8sClient.Delete(context.Background(), object)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
 func addArecord() *dnsv1.Arecord {
@@ -56,7 +55,7 @@ func addArecord() *dnsv1.Arecord {
 		fmt.Printf("%#v", err)
 	}
 	err = k8sClient.Create(context.Background(), aRecord)
-	g.Expect(err).Should(gomega.Succeed())
+	gomega.Expect(err).Should(gomega.Succeed())
 	return aRecord
 }
 
@@ -72,7 +71,7 @@ func createDeployment(deploymentPath string) *appsv1.Deployment {
 	if err != nil {
 		fmt.Printf("%#v", err)
 	}
-	g.Expect(k8sClient.Create(context.Background(), deployment)).Should(gomega.Succeed())
+	gomega.Expect(k8sClient.Create(context.Background(), deployment)).Should(gomega.Succeed())
 	return deployment
 }
 
@@ -145,7 +144,7 @@ func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, searchSlice []str
 		fail = 1
 	}
 
-	g.Expect(fail).Should(gomega.Equal(0))
+	gomega.Expect(fail).Should(gomega.Equal(0))
 
 }
 
@@ -179,19 +178,20 @@ var _ = ginkgo.Describe("Test Deployments that use Par Manager Address as DNS\n"
 		})
 	})
 })
-
-func TestDeployments(t *testing.T) {
+var _ = ginkgo.BeforeSuite(func() {
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	g = gomega.NewWithT(t)
+	//set up a client
 	env := envtest.Environment{
 		UseExistingCluster: boolPointer(true),
 	}
 	config, err := env.Start()
 	clientset, err = kubernetes.NewForConfig(config)
 	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-	// Sleep until Par Manager is ready
-	// TODO: add smarter check for this
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+})
+
+func TestDeployments(t *testing.T) {
+	// https://onsi.github.io/ginkgo/#ginkgo-and-gomega-patterns
 	time.Sleep(20 * time.Second)
 	ginkgo.RunSpecs(t, "Test Deployments")
 }
