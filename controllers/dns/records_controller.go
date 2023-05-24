@@ -18,14 +18,21 @@ package dns
 
 import (
 	"context"
-
+	"github.com/jmcgrath207/par/controllers/deployment"
+	"github.com/jmcgrath207/par/dns/types"
+	"github.com/jmcgrath207/par/proxy"
+	"github.com/jmcgrath207/par/storage"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 )
+
+var managerAddress string
+var initReconcile int
 
 // RecordsReconciler reconciles a Records object
 type RecordsReconciler struct {
@@ -37,26 +44,100 @@ type RecordsReconciler struct {
 //+kubebuilder:rbac:groups=dns.par.dev,resources=records/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=dns.par.dev,resources=records/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Records object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *RecordsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	// Needs to happen here since the Read Cache of the client vaild until Reconcile is Invoked.
+	// https://sdk.operatorframework.io/docs/building-operators/golang/references/client/#default-client
+	if initReconcile == 0 {
+		r.SetManagerAddress(ctx)
+		r.BackFillRecords(ctx)
+		initReconcile = 1
+	}
+	var records types.Records
 
+	if err := r.Get(ctx, req.NamespacedName, &records); err != nil {
+		// Handle error if the MyResource object cannot be fetched
+		if errors.IsNotFound(err) {
+			// The MyResource object has been deleted, so we can stop reconciling
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+
+	}
+	if records.Spec.ManagerAddress == "" {
+		r.UpdateRecords(ctx, records)
+	}
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RecordsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&dnsv1alpha1.Records{}).
+		For(&types.Records{}).
 		Complete(r)
+}
+
+func (r *RecordsReconciler) BackFillRecords(ctx context.Context) (ctrl.Result, error) {
+	// Gather existing Arecords in cluster and create a controller for them
+	recordsList := types.RecordsList{}
+	// Create a client.MatchingLabels object with the annotation key and value
+	err := r.List(ctx, &recordsList)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	for _, records := range recordsList.Items {
+		if records.Spec.ManagerAddress != "" {
+			r.UpdateRecords(ctx, records)
+		}
+
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, records types.Records) {
+	if err := (&deployment.DeploymentReconciler{
+		Client: storage.Mgr.GetClient(),
+		Scheme: storage.Mgr.GetScheme(),
+	}).SetupWithManager(storage.Mgr, records); err != nil {
+		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment")
+		os.Exit(1)
+	}
+}
+
+func (r *RecordsReconciler) SetManagerAddress(ctx context.Context) {
+
+	// Find all services that match the labels in of par.dev/manager: true
+	serviceList := &corev1.ServiceList{}
+	namespace, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		panic(err)
+	}
+	opts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(map[string]string{"par.dev/manager": "true"}),
+	}
+	log.FromContext(ctx).Info("searching for par manager service", "namespace", namespace)
+
+	err = r.List(ctx, serviceList, opts...)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "could not find par manager service", "namespace", namespace)
+		panic(err)
+	}
+	managerAddress = serviceList.Items[0].Spec.ClusterIP
+	log.FromContext(ctx).Info("found service par manager service", "service", serviceList.Items[0].Spec.ClusterIP)
+	proxy.SetProxyServiceIP(opts)
+}
+
+func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records types.Records) {
+	records.Spec.ManagerAddress = managerAddress
+	records.Set()
+	for _, x := range records.RecordItems {
+		storage.SetRecord(x.HostName, x)
+		log.FromContext(ctx).Info("Reconciling record", "Record Type", x.RecordType, "Hostname", x.HostName)
+
+	}
+
+	r.InvokeDeploymentManager(ctx, records)
 }

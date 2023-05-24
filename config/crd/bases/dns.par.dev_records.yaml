@@ -33,9 +33,33 @@ spec:
           metadata:
             type: object
           spec:
-            description: RecordsSpec defines the desired state of Records
             properties:
-              foo:
+              a:
+                items:
+                  properties:
+                    forward-type:
+                      type: string
+                    hostname:
+                      type: string
+                    ip-address:
+                      type: string
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    manager-address:
+                      type: string
+                    namespaces:
+                      type: string
+                  required:
+                  - forward-type
+                  - hostname
+                  - ip-address
+                  - labels
+                  - namespaces
+                  type: object
+                type: array
+              manager-address:
                 description: Foo is an example field of Records. Edit records_types.go
                   to remove/update
                 type: string

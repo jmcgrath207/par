@@ -78,7 +78,7 @@ func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
 	val, ok := storage.GetRecord("A", domainName)
 	if ok {
 		log.FromContext(context.Background()).Info("Found A record in storage, returning ip", "domainName", domainName, "ips", val, "clientIP", clientIP)
-		return append(ipSlice, net.ParseIP(val)), nil
+		return append(ipSlice, net.ParseIP(val.IPAddress)), nil
 	}
 
 	ips, err := net.LookupIP(domainName)

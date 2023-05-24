@@ -2,7 +2,7 @@
 function trap_func() {
   set +e
   {
-  kubectl delete -f tests/resources/test_dns_v1_arecord.yaml  --ignore-not-found
+  kubectl delete -f tests/resources/test_dns_v1alpha1_records.yaml  --ignore-not-found
 	helm delete par -n par
 	helm delete nginx -n par
 	kubectl delete -f tests/resources/test_a_record_deployment.yaml --ignore-not-found
@@ -16,7 +16,7 @@ function trap_func() {
 
 
 function add_test_clients() {
-  kubectl apply -f tests/resources/test_dns_v1_arecord.yaml
+  kubectl apply -f tests/resources/test_dns_v1alpha1_records.yaml
 	kubectl apply -f tests/resources/test_a_record_deployment.yaml
 	kubectl apply -f tests/resources/test_no_record_deployment.yaml
 	kubectl apply -f tests/resources/test_wget_a_record_deployment.yaml

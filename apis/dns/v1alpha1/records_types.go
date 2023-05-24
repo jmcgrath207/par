@@ -30,18 +30,17 @@ type RecordsSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Records. Edit records_types.go to remove/update
-	Items []RecordsSpecListItem `json:"items"`
+	ManagerAddress string         `json:"manager-address,omitempty"`
+	A              []ARecordsSpec `json:"a,omitempty"`
 }
 
-type RecordsSpecListItem struct {
-	Namespace      string            `json:"namespace,omitempty"`
-	Labels         map[string]string `json:"labels,omitempty"`
-	HostName       string            `json:"hostname,omitempty"`
-	IPAddress      string            `json:"ip-address,omitempty"`
-	ManagerAddress string            `json:"manager-address,omitempty"`
-	RecordId       string            `json:"record-id,omitempty"`
-	RecordType     string            `json:"record-type"`
+type ARecordsSpec struct {
+	Namespaces     string            `json:"namespaces"`
+	Labels         map[string]string `json:"labels"`
+	HostName       string            `json:"hostname"`
+	IPAddress      string            `json:"ip-address"`
 	ForwardType    string            `json:"forward-type"`
+	ManagerAddress string            `json:"manager-address,omitempty"`
 }
 
 // RecordsStatus defines the observed state of Records
