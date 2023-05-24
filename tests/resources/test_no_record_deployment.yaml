@@ -4,16 +4,19 @@ metadata:
   name: example-deployment-no-record
   labels:
     app: example
+    app-type: example-deployment-no-record
   namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: example
+      app-type: example-deployment-no-record
   template:
     metadata:
       labels:
         app: example
+        app-type: example-deployment-no-record
     spec:
       containers:
         - name: client

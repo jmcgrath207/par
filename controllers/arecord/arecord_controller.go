@@ -80,8 +80,6 @@ func (r *ArecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ArecordReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// TODO: Doesn't seem to work until  NewControllerManagedBy is called.
-	// Could be timing issues.
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dnsv1.Arecord{}).
 		Complete(r)

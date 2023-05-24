@@ -13,7 +13,6 @@ import (
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 	"testing"
 	"time"
@@ -29,15 +28,11 @@ var (
 	clientset *kubernetes.Clientset
 	k8sClient client.Client
 	namespace = "default"
+	aRecord   *dnsv1.Arecord
 )
 
 func boolPointer(b bool) *bool {
 	return &b
-}
-
-func cleanupResource(object client.Object) {
-	err := k8sClient.Delete(context.Background(), object)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
 func addArecord() *dnsv1.Arecord {
@@ -90,9 +85,10 @@ func GetManagerAddress() string {
 	return serviceList.Items[0].Spec.ClusterIP
 }
 
-func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, searchSlice []string) {
+func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, checkSlice []string) {
 	ifFound := make(map[string]bool)
 	var fail int
+	var checkOuput string
 
 	podList := corev1.PodList{}
 	opts := []client.ListOption{
@@ -100,34 +96,40 @@ func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, searchSlice []str
 		client.MatchingLabels(deployment.Spec.Template.ObjectMeta.Labels),
 	}
 	k8sClient.List(context.Background(), &podList, opts...)
+	gomega.Expect(len(podList.Items)).Should(gomega.BeNumerically(">", 0))
 
 	for _, pod := range podList.Items {
 		req := clientset.CoreV1().Pods(pod.ObjectMeta.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
 			Container: pod.Spec.Containers[0].Name,
 		})
+
 		podLogs, err := req.Stream(context.Background())
 		if err != nil {
-			log.FromContext(context.Background()).Error(err, "unable to get pod logs")
-			os.Exit(1)
+			ginkgo.GinkgoWriter.Printf("Pod name: \n %v", pod.Name)
+			ginkgo.Fail("Unable to get pod logs")
 		}
 		defer podLogs.Close()
 
-		buffer := make([]byte, 1024)
+		buffer := make([]byte, 512)
 		for {
 			bytesRead, err := podLogs.Read(buffer)
 			if err != nil {
-				log.FromContext(context.Background()).Error(err, "unable to read pod logs")
 				break
 			}
 			if bytesRead > 0 {
 				output := string(buffer[:bytesRead])
-				for _, a := range searchSlice {
+				checkOuput = checkOuput + output
+				//ginkgo.GinkgoWriter.Printf("checkSlice %v \n", checkSlice)
+				for _, a := range checkSlice {
 					if ifFound[a] {
 						continue
 					}
 					if strings.Contains(output, a) {
 						ifFound[a] = true
+						//ginkgo.GinkgoWriter.Printf("Found it %v \n", a)
 						continue
+					} else {
+						ifFound[a] = false
 					}
 				}
 				continue
@@ -141,44 +143,69 @@ func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, searchSlice []str
 			continue
 		}
 		ginkgo.GinkgoWriter.Printf("Did not find value %v in pod logs\n", key)
+		ginkgo.GinkgoWriter.Printf("Pod logs output: \n %v", checkOuput)
 		fail = 1
 	}
-
 	gomega.Expect(fail).Should(gomega.Equal(0))
 
 }
 
 var _ = ginkgo.Describe("Test Deployments that use Par Manager Address as DNS\n", func() {
 
-	ginkgo.Context("Test Deployment that queries a domain NOT IN ARecord\n", func() {
-		arecord := addArecord()
-		defer cleanupResource(arecord)
-		deployment := createDeployment("../resources/test_no_record_deployment.yaml")
-		defer cleanupResource(deployment)
+	ginkgo.Context("Test Deployment that queries a domain that is IN ARecord\n", func() {
+		deployment := createDeployment("../resources/test_a_record_deployment.yaml")
+		//defer cleanupResource(deployment)
 		// TODO: check logs on manager if deployment is ready
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
+		ginkgo.Specify("Does return a Proxy IP address upon DNS lookup from Par Manager Address\n", func() {
+			var checkSlice []string
+			checkSlice = append(checkSlice, "google.com", aRecord.Spec.IPAddress)
+			CheckPodLogsFromDeployment(deployment, checkSlice)
+		})
+	})
+
+	ginkgo.Context("Test Deployment that queries a domain that is IN ARecord with PROXY\n", func() {
+		deployment := createDeployment("../resources/test_wget_a_record_deployment.yaml")
+		//defer cleanupResource(deployment)
+		// TODO: check logs on manager if deployment is ready
+		time.Sleep(10 * time.Second)
+		ginkgo.Specify("Does return a Proxy IP address upon DNS lookup from Par Manager Address\n", func() {
+			var checkSlice []string
+			// TODO: how to get the cluster dns address and add it to the checkSlice
+			checkSlice = append(checkSlice, "google.com")
+			CheckPodLogsFromDeployment(deployment, checkSlice)
+		})
+	})
+
+	ginkgo.Context("Test Deployment that queries a domain NOT IN ARecord with PROXY\n", func() {
+		deployment := createDeployment("../resources/test_wget_no_record_deployment.yaml")
+		//defer cleanupResource(deployment)
+		// TODO: check logs on manager if deployment is ready
+		time.Sleep(10 * time.Second)
+		ginkgo.Specify("Does not return a Proxy IP address upon DNS lookup from Par Manager Address, only Upstream DNS\n", func() {
+			var checkSlice []string
+			// TODO: Query Cluster DNS and compare with CheckSlice
+			checkSlice = append(checkSlice, "yahoo.com")
+			CheckPodLogsFromDeployment(deployment, checkSlice)
+		})
+	})
+
+	ginkgo.Context("Test Deployment that queries a domain NOT IN ARecord\n", func() {
+		deployment := createDeployment("../resources/test_no_record_deployment.yaml")
+		//defer cleanupResource(deployment)
+		// TODO: check logs on manager if deployment is ready
+		time.Sleep(10 * time.Second)
 		ginkgo.Specify("Does not return a Proxy IP address upon DNS lookup from Par Manager Address, only Upstream DNS\n", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "yahoo.com", GetManagerAddress())
 			CheckPodLogsFromDeployment(deployment, checkSlice)
 		})
 	})
-	ginkgo.Context("Test Deployment that queries a domain that is IN ARecord\n", func() {
-		arecord := addArecord()
-		defer cleanupResource(arecord)
-		deployment := createDeployment("../resources/test_wget_a_record_deployment.yaml")
-		defer cleanupResource(deployment)
-		// TODO: check logs on manager if deployment is ready
-		time.Sleep(5 * time.Second)
-		ginkgo.Specify("Does return a Proxy IP address upon DNS lookup from Par Manager Address\n", func() {
-			var checkSlice []string
-			// TODO: has issue with check both values in checkSlice when two test run. Might be due to function instead of method in struct
-			checkSlice = append(checkSlice, "google.com", arecord.Spec.IPAddress)
-			CheckPodLogsFromDeployment(deployment, checkSlice)
-		})
-	})
 })
-var _ = ginkgo.BeforeSuite(func() {
+
+func TestDeployments(t *testing.T) {
+	// https://onsi.github.io/ginkgo/#ginkgo-and-gomega-patterns
+	time.Sleep(20 * time.Second)
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	//set up a client
 	env := envtest.Environment{
@@ -187,11 +214,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	config, err := env.Start()
 	clientset, err = kubernetes.NewForConfig(config)
 	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
+	aRecord = addArecord()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-})
-
-func TestDeployments(t *testing.T) {
-	// https://onsi.github.io/ginkgo/#ginkgo-and-gomega-patterns
-	time.Sleep(20 * time.Second)
 	ginkgo.RunSpecs(t, "Test Deployments")
 }

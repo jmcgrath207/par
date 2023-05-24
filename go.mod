@@ -6,6 +6,7 @@ require (
 	github.com/miekg/dns v1.1.52
 	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	k8s.io/api v0.26.3
 	k8s.io/apimachinery v0.26.3
 	k8s.io/client-go v0.26.3

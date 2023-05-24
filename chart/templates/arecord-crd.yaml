@@ -49,8 +49,6 @@ spec:
                 type: string
               record-id:
                 type: string
-              type:
-                type: string
             type: object
           status:
             description: ArecordStatus defines the observed state of Arecord

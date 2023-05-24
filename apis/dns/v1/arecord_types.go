@@ -30,7 +30,6 @@ type ArecordSpec struct {
 
 	Namespace      string            `json:"namespace,omitempty"`
 	Labels         map[string]string `json:"labels,omitempty"`
-	Type           string            `json:"type,omitempty"`
 	HostName       string            `json:"hostname,omitempty"`
 	IPAddress      string            `json:"ip-address,omitempty"`
 	ManagerAddress string            `json:"manager-address,omitempty"`
