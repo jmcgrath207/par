@@ -1,0 +1,12 @@
+apiVersion: dns.par.dev/v1alpha1
+kind: Records
+metadata:
+  labels:
+    app.kubernetes.io/name: records
+    app.kubernetes.io/instance: records-sample
+    app.kubernetes.io/part-of: par
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: par
+  name: records-sample
+spec:
+  # TODO(user): Add fields here

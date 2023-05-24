@@ -61,3 +61,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - dns.par.dev
+  resources:
+  - records
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dns.par.dev
+  resources:
+  - records/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - dns.par.dev
+  resources:
+  - records/status
+  verbs:
+  - get
+  - patch
+  - update

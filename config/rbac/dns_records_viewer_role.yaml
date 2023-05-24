@@ -1,0 +1,27 @@
+# permissions for end users to view records.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: records-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: par
+    app.kubernetes.io/part-of: par
+    app.kubernetes.io/managed-by: kustomize
+  name: records-viewer-role
+rules:
+- apiGroups:
+  - dns.par.dev
+  resources:
+  - records
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - dns.par.dev
+  resources:
+  - records/status
+  verbs:
+  - get

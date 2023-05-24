@@ -101,6 +101,16 @@ func (w *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		log.FromContext(context.Background()).Info("Skipping no name Deployment...", "deployment", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
+	//switch os := runtime.GOOS; os {
+	//case "darwin":
+	//	fmt.Println("OS X.")
+	//case "linux":
+	//	fmt.Println("Linux.")
+	//default:
+	//	// freebsd, openbsd,
+	//	// plan9, windows...
+	//	fmt.Printf("%s.\n", os)
+	//}
 	return w.UpdateDnsClient(*deployment, w.aRecord.Spec.ManagerAddress)
 
 }
