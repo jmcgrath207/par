@@ -22,6 +22,6 @@ spec:
         - name: client
           image: nicolaka/netshoot
           command: [ "/bin/sh" ]
-          args: [ "-c", "while true; do nslookup yahoo.com || true; sleep 1;done" ]
+          args: [ "-c", "while true; do nslookup yahoo.com || true; sleep 5;done" ]
           ports:
             - containerPort: 80

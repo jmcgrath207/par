@@ -22,6 +22,6 @@ spec:
         - name: client
           image: nicolaka/netshoot
           command: [ "/bin/sh" ]
-          args: [ "-c", "while true; do wget http://yahoo.com:8080 || true; sleep 10;done" ]
+          args: [ "-c", "while true; do wget yahoo.com -O /dev/null || true; sleep 5;done" ]
           ports:
             - containerPort: 80
