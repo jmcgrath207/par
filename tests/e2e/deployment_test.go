@@ -150,7 +150,14 @@ func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, checkSlice []stri
 
 }
 
-var _ = ginkgo.Describe("Test Deployments that use Par Manager Address as DNS\n", func() {
+// TODO: add test following test
+// kill manager pods and make sure it works
+// update a entry a Arecord ip address entry
+// remove a Arecord entry and make sure it's evicted from DNS cache
+// add HostAlias Test
+// add Non Proxy Test
+// Add Cname Test
+var _ = ginkgo.Describe("Test Deployments on Arecords\n", func() {
 
 	ginkgo.Context("Test Deployment that queries a domain that is IN ARecord\n", func() {
 		deployment := createDeployment("../resources/test_a_record_deployment.yaml")
