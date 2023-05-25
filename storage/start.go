@@ -1,14 +1,13 @@
 package storage
 
 import (
-	"github.com/jmcgrath207/par/dns/types"
 	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
-	recordMap     = map[string]map[string]types.Record{}
+	recordMap     map[string]map[string]interface{}
 	SourceHostMap = map[string]net.IP{}
 	ProxyReady    chan bool
 	ClientK8s     client.Client
@@ -16,23 +15,27 @@ var (
 )
 
 func Start(mgr ctrl.Manager) {
+	recordMap = make(map[string]map[string]interface{})
 	ProxyReady = make(chan bool)
 	ClientK8s = mgr.GetClient()
 	Mgr = mgr
 }
 
-func SetRecord(recordType string, record types.Record) {
-	recordMap[record.HostName+"."][recordType] = record
+func SetRecord(recordType string, hostname string, record interface{}) {
+	hostname = hostname + "."
+	if recordMap[hostname] == nil {
+		recordMap[hostname] = make(map[string]interface{})
+	}
+	recordMap[hostname][recordType] = record
 }
 
-func GetRecord(recordType string, hostname string) (types.Record, bool) {
+func GetRecord(recordType string, hostname string) (interface{}, bool) {
 	_, ok := recordMap[hostname]
 	if ok {
 		val, ok := recordMap[hostname][recordType]
 		if ok {
 			return val, true
 		}
-
 	}
-	return types.Record{}, false
+	return nil, false
 }

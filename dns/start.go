@@ -3,6 +3,7 @@ package dns
 import (
 	"context"
 	"fmt"
+	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/jmcgrath207/par/storage"
 	"github.com/miekg/dns"
 	"net"
@@ -77,8 +78,9 @@ func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
 
 	val, ok := storage.GetRecord("A", domainName)
 	if ok {
-		log.FromContext(context.Background()).Info("Found A record in storage, returning ip", "domainName", domainName, "ips", val, "clientIP", clientIP)
-		return append(ipSlice, net.ParseIP(val.IPAddress)), nil
+		aRecord := val.(dnsv1alpha1.ARecordsSpec)
+		log.FromContext(context.Background()).Info("Found A record in storage, returning ip", "domainName", domainName, "ips", aRecord.IPAddress, "clientIP", clientIP)
+		return append(ipSlice, net.ParseIP(aRecord.IPAddress)), nil
 	}
 
 	ips, err := net.LookupIP(domainName)

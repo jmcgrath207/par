@@ -20,7 +20,6 @@ import (
 	"flag"
 	"os"
 
-	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
 	"github.com/jmcgrath207/par/dns"
 	"github.com/jmcgrath207/par/proxy"
 	"github.com/jmcgrath207/par/storage"
@@ -48,8 +47,6 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
-	utilruntime.Must(dnsv1.AddToScheme(scheme))
 	utilruntime.Must(dnsv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }

@@ -18,14 +18,15 @@ package dns
 
 import (
 	"context"
+	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/jmcgrath207/par/controllers/deployment"
-	"github.com/jmcgrath207/par/dns/types"
 	"github.com/jmcgrath207/par/proxy"
 	"github.com/jmcgrath207/par/storage"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"os"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -53,7 +54,7 @@ func (r *RecordsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		r.BackFillRecords(ctx)
 		initReconcile = 1
 	}
-	var records types.Records
+	var records dnsv1alpha1.Records
 
 	if err := r.Get(ctx, req.NamespacedName, &records); err != nil {
 		// Handle error if the MyResource object cannot be fetched
@@ -64,22 +65,21 @@ func (r *RecordsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 
 	}
-	if records.Spec.ManagerAddress == "" {
-		r.UpdateRecords(ctx, records)
-	}
+	r.UpdateRecords(ctx, records)
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RecordsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&types.Records{}).
+		For(&dnsv1alpha1.Records{}).
 		Complete(r)
 }
 
 func (r *RecordsReconciler) BackFillRecords(ctx context.Context) (ctrl.Result, error) {
 	// Gather existing Arecords in cluster and create a controller for them
-	recordsList := types.RecordsList{}
+
+	recordsList := dnsv1alpha1.RecordsList{}
 	// Create a client.MatchingLabels object with the annotation key and value
 	err := r.List(ctx, &recordsList)
 	if err != nil {
@@ -87,20 +87,17 @@ func (r *RecordsReconciler) BackFillRecords(ctx context.Context) (ctrl.Result, e
 	}
 
 	for _, records := range recordsList.Items {
-		if records.Spec.ManagerAddress != "" {
-			r.UpdateRecords(ctx, records)
-		}
-
+		r.UpdateRecords(ctx, records)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, records types.Records) {
+func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, records dnsv1alpha1.Records, namespaces []string) {
 	if err := (&deployment.DeploymentReconciler{
 		Client: storage.Mgr.GetClient(),
 		Scheme: storage.Mgr.GetScheme(),
-	}).SetupWithManager(storage.Mgr, records); err != nil {
+	}).SetupWithManager(storage.Mgr, records, namespaces); err != nil {
 		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment")
 		os.Exit(1)
 	}
@@ -130,14 +127,24 @@ func (r *RecordsReconciler) SetManagerAddress(ctx context.Context) {
 	proxy.SetProxyServiceIP(opts)
 }
 
-func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records types.Records) {
-	records.Spec.ManagerAddress = managerAddress
-	records.Set()
-	for _, x := range records.RecordItems {
-		storage.SetRecord(x.HostName, x)
-		log.FromContext(ctx).Info("Reconciling record", "Record Type", x.RecordType, "Hostname", x.HostName)
+func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alpha1.Records) {
 
+	records.Spec.ManagerAddress = managerAddress
+
+	var namespaces []string
+
+	val := reflect.ValueOf(records.Spec)
+	for i := 0; i < val.NumField(); i++ {
+		attrName := val.Type().Field(i).Name
+		// TODO: make this better
+		if attrName == "A" {
+			for _, x := range records.Spec.A {
+				storage.SetRecord(attrName, x.HostName, x)
+				namespaces = append(namespaces, x.Namespaces)
+				log.FromContext(ctx).Info("Reconciling record", "Record Type", attrName, "Hostname", x.HostName)
+			}
+		}
 	}
 
-	r.InvokeDeploymentManager(ctx, records)
+	r.InvokeDeploymentManager(ctx, records, namespaces)
 }

@@ -3,7 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
-	dnsv1 "github.com/jmcgrath207/par/apis/dns/v1"
+	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,30 +28,30 @@ var (
 	clientset *kubernetes.Clientset
 	k8sClient client.Client
 	namespace = "default"
-	aRecord   *dnsv1.Arecord
+	records   *dnsv1alpha1.Records
 )
 
 func boolPointer(b bool) *bool {
 	return &b
 }
 
-func addArecord() *dnsv1.Arecord {
-	dnsv1.AddToScheme(scheme.Scheme)
-	yamlFile, err := os.ReadFile("../resources/test_dns_v1_arecord.yaml")
+func addRecords() *dnsv1alpha1.Records {
+	dnsv1alpha1.AddToScheme(scheme.Scheme)
+	yamlFile, err := os.ReadFile("../resources/test_dns_v1alpha1_records.yaml")
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
 	}
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 
-	aRecord := &dnsv1.Arecord{}
-	_, _, err = decode(yamlFile, nil, aRecord)
+	records := &dnsv1alpha1.Records{}
+	_, _, err = decode(yamlFile, nil, records)
 	if err != nil {
 		fmt.Printf("%#v", err)
 	}
-	err = k8sClient.Create(context.Background(), aRecord)
+	err = k8sClient.Create(context.Background(), records)
 	gomega.Expect(err).Should(gomega.Succeed())
-	return aRecord
+	return records
 }
 
 func createDeployment(deploymentPath string) *appsv1.Deployment {
@@ -159,7 +159,7 @@ var _ = ginkgo.Describe("Test Deployments that use Par Manager Address as DNS\n"
 		time.Sleep(10 * time.Second)
 		ginkgo.Specify("Does return a Proxy IP address upon DNS lookup from Par Manager Address\n", func() {
 			var checkSlice []string
-			checkSlice = append(checkSlice, "google.com", aRecord.Spec.IPAddress)
+			checkSlice = append(checkSlice, "google.com", records.Spec.A[0].IPAddress)
 			CheckPodLogsFromDeployment(deployment, checkSlice)
 		})
 	})
@@ -214,7 +214,7 @@ func TestDeployments(t *testing.T) {
 	config, err := env.Start()
 	clientset, err = kubernetes.NewForConfig(config)
 	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
-	aRecord = addArecord()
+	records = addRecords()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	ginkgo.RunSpecs(t, "Test Deployments")
 }

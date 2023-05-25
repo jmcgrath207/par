@@ -3,7 +3,7 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"github.com/jmcgrath207/par/dns/types"
+	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/jmcgrath207/par/storage"
 	"github.com/patrickmn/go-cache"
 	appsv1 "k8s.io/api/apps/v1"
@@ -20,9 +20,10 @@ import (
 type DeploymentReconciler struct {
 	client.Client
 	Scheme              *runtime.Scheme
-	records             types.Records
 	deploymentNameCache *cache.Cache
 	controllerName      string
+	managerAddress      string
+	namespaces          []string
 }
 
 func haveSameKeys(map1, map2 map[string]string) bool {
@@ -41,11 +42,20 @@ func haveSameKeys(map1, map2 map[string]string) bool {
 	return true
 }
 
+func Contains[T comparable](s []T, e T) bool {
+	for _, v := range s {
+		if v == e {
+			return true
+		}
+	}
+	return false
+}
+
 // Define a predicate function to filter out unwanted events
 func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			if w.records.InNamespaces(e.Object.GetNamespace()) {
+			if Contains(w.namespaces, e.Object.GetNamespace()) {
 				log.FromContext(context.Background()).Info("Reconcile Create", "deployment", e.Object.GetName(), "controller", w.controllerName)
 				return true
 				// TODO: fix this
@@ -54,7 +64,7 @@ func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if w.records.InNamespaces(e.ObjectNew.GetNamespace()) {
+			if Contains(w.namespaces, e.ObjectNew.GetNamespace()) {
 				// TODO: fix this
 				//if haveSameKeys(w.aRecord.Spec.Labels, e.ObjectNew.GetLabels()) {
 				_, value := w.deploymentNameCache.Get(e.ObjectNew.GetName())
@@ -79,9 +89,10 @@ func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, records types.Records) error {
+func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, records dnsv1alpha1.Records, namespaces []string) error {
 	w.deploymentNameCache = cache.New(30*time.Second, 1*time.Minute)
-	w.records = records
+	w.managerAddress = records.Spec.ManagerAddress
+	w.namespaces = namespaces
 	w.controllerName = fmt.Sprintf(records.Name + " deployment")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}).
@@ -104,27 +115,32 @@ func (w *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		log.FromContext(context.Background()).Info("Skipping no name Deployment...", "deployment", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
-	return w.UpdateDnsClient(*deployment, w.records.Spec.ManagerAddress)
+	return w.UpdateDnsClient(*deployment)
 
 }
 
-func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment, dnsIP string) (ctrl.Result, error) {
+func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ctrl.Result, error) {
 	w.deploymentNameCache.Set(deployment.Name, 1, cache.DefaultExpiration)
 	deploymentClone := deployment.DeepCopy()
 
 	// Add a new DNS configuration to the deployment's pod template with the updated IP address.
 	deploymentClone.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
-		Nameservers: []string{dnsIP},
+		Nameservers: []string{w.managerAddress},
 	}
 
 	deploymentClone.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
-	log.FromContext(context.Background()).Info("updating deployment dns policy to point to service dnsIP of par manager", "deployment", deploymentClone.Name, "dnsIP", dnsIP)
+	log.FromContext(context.Background()).Info("updating deployment dns policy to point to service dnsIP of par manager",
+		"deployment", deploymentClone.Name, "dnsIP", w.managerAddress)
+
 	err := storage.ClientK8s.Patch(context.TODO(), deploymentClone, client.MergeFrom(&deployment))
 	if err != nil {
-		log.FromContext(context.Background()).Error(err, "could not update deployment dns policy to point to service dnsIP of par manager", "deployment", deploymentClone.Name, "dnsIP", dnsIP)
+		log.FromContext(context.Background()).Error(err, "could not update deployment dns policy to point to service dnsIP of par manager",
+			"deployment", deploymentClone.Name, "dnsIP", w.managerAddress)
+
 		return ctrl.Result{}, err
 	}
-	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager", "deployment", deploymentClone.Name, "dnsIP", dnsIP)
+	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager",
+		"deployment", deploymentClone.Name, "dnsIP", w.managerAddress)
 
 	return ctrl.Result{}, nil
 }

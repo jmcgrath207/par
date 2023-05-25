@@ -35,12 +35,11 @@ type RecordsSpec struct {
 }
 
 type ARecordsSpec struct {
-	Namespaces     string            `json:"namespaces"`
-	Labels         map[string]string `json:"labels"`
-	HostName       string            `json:"hostname"`
-	IPAddress      string            `json:"ip-address"`
-	ForwardType    string            `json:"forward-type"`
-	ManagerAddress string            `json:"manager-address,omitempty"`
+	Namespaces  string            `json:"namespaces"`
+	Labels      map[string]string `json:"labels"`
+	HostName    string            `json:"hostname"`
+	IPAddress   string            `json:"ip-address"`
+	ForwardType string            `json:"forward-type"`
 }
 
 // RecordsStatus defines the observed state of Records
