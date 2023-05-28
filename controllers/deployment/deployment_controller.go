@@ -23,24 +23,24 @@ type DeploymentReconciler struct {
 	controllerName      string
 	dnsServerAddress    string
 	namespaces          []string
+	labels              map[string]string
 }
 
-// TODO: add label filter
-//func haveSameKeys(map1, map2 map[string]string) bool {
-//
-//	// Iterate over the keys of map1 and check if they exist in map2
-//	for key, val := range map1 {
-//		_, ok := map2[key]
-//		if ok {
-//			if map1[val] == map2[val] {
-//				continue
-//			}
-//			return false
-//		}
-//		return false
-//	}
-//	return true
-//}
+func haveSameKeys(map1, map2 map[string]string) bool {
+	// TODO: label filter is broken
+	// Iterate over the keys of map1 and check if they exist in map2
+	for key, val := range map1 {
+		_, ok := map2[key]
+		if ok {
+			if map1[val] == map2[val] {
+				continue
+			}
+			return false
+		}
+		return false
+	}
+	return true
+}
 
 func Contains[T comparable](s []T, e T) bool {
 	for _, v := range s {
@@ -57,21 +57,18 @@ func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 		CreateFunc: func(e event.CreateEvent) bool {
 			if Contains(w.namespaces, e.Object.GetNamespace()) {
 				log.FromContext(context.Background()).Info("Reconcile Create", "deployment", e.Object.GetName(), "controller", w.controllerName)
-				return true
-				// TODO: fix this
-				//return haveSameKeys(w.aRecord.Spec.Labels, e.Object.GetLabels())
+				return haveSameKeys(w.labels, e.Object.GetLabels())
 			}
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			if Contains(w.namespaces, e.ObjectNew.GetNamespace()) {
-				// TODO: fix this
-				//if haveSameKeys(w.aRecord.Spec.Labels, e.ObjectNew.GetLabels()) {
-				_, value := w.deploymentNameCache.Get(e.ObjectNew.GetName())
-				if !value {
-					log.FromContext(context.Background()).Info("Reconcile Update", "deployment", e.ObjectNew.GetName(), "controller", w.controllerName)
-					return true
-					//}
+				if haveSameKeys(w.labels, e.ObjectNew.GetLabels()) {
+					_, value := w.deploymentNameCache.Get(e.ObjectNew.GetName())
+					if !value {
+						log.FromContext(context.Background()).Info("Reconcile Update", "deployment", e.ObjectNew.GetName(), "controller", w.controllerName)
+						return true
+					}
 
 				}
 			}
@@ -89,10 +86,11 @@ func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddress string, namespaces []string, name string) error {
+func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddress string, namespaces []string, name string, labels map[string]string) error {
 	w.deploymentNameCache = cache.New(30*time.Second, 1*time.Minute)
 	w.dnsServerAddress = dnsServerAddress
 	w.namespaces = namespaces
+	w.labels = labels
 	w.controllerName = fmt.Sprintf(name + " deployment")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}).

@@ -127,30 +127,32 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 		attrName := val.Type().Field(i).Name
 		// TODO: make this better
 		if attrName == "A" {
-			for y, x := range records.Spec.A {
+			count := 1
+			for _, x := range records.Spec.A {
 				storage.SetRecord(attrName, x.HostName, x)
 				namespaces = append(namespaces, x.Namespaces...)
 				log.FromContext(ctx).Info("Reconciling record", "Record Type", attrName, "Hostname", x.HostName)
 				if x.ForwardType == "manager" {
-					r.InvokeDeploymentManager(ctx, managerAddress, namespaces, fmt.Sprintf("A record "+string(rune(y))))
+					r.InvokeDeploymentManager(ctx, managerAddress, namespaces, fmt.Sprintf("A record "+string(rune(count))), x.Labels)
 				} else if x.ForwardType == "proxy" {
 					// Proxy forward
 					r.SetProxy(ctx, x)
-					r.InvokeDeploymentManager(ctx, storage.ProxyAddress, namespaces, fmt.Sprintf("A record "+string(rune(y))))
+					r.InvokeDeploymentManager(ctx, storage.ProxyAddress, namespaces, fmt.Sprintf("A record "+string(rune(count))), x.Labels)
 				} else {
 					log.FromContext(ctx).Info("No forward type found in record")
 					os.Exit(1)
 				}
+				count = count + 1
 			}
 		}
 	}
 
 }
-func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, dnsServerAddress string, namespaces []string, name string) {
+func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, dnsServerAddress string, namespaces []string, name string, labels map[string]string) {
 	if err := (&deployment.DeploymentReconciler{
 		Client: storage.Mgr.GetClient(),
 		Scheme: storage.Mgr.GetScheme(),
-	}).SetupWithManager(storage.Mgr, dnsServerAddress, namespaces, name); err != nil {
+	}).SetupWithManager(storage.Mgr, dnsServerAddress, namespaces, name, labels); err != nil {
 		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment")
 		os.Exit(1)
 	}
