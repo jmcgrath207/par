@@ -38,7 +38,7 @@ function main() {
   	'{ "spec": {"template": { "spec":{"containers":[{"name":"manager", "imagePullPolicy": "Never" }]}}}}'
   fi
 
-  helm install nginx nginx/nginx -f tests/resources/test_proxy.yaml -n par
+  helm install nginx oci://registry-1.docker.io/bitnamicharts/nginx -f tests/resources/test_proxy.yaml -n par
 
 
   if [[ $ENV == "debug" ]]; then

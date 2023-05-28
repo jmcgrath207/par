@@ -17,6 +17,8 @@ import (
 
 var k8sClient client.Client
 var namespace []byte
+var renderComplete int
+var proxyIP string
 
 func Start() {
 	namespace, _ = os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
@@ -25,9 +27,7 @@ func Start() {
 	k8sClient = client.NewNamespacedClient(storage.ClientK8s, string(namespace))
 }
 
-func SetProxyServiceIP(optsClient []client.ListOption) {
-	// Set the proxy service IP in the storage map when source pod is requested
-
+func GetProxyServiceIP() {
 	serviceList := &corev1.ServiceList{}
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
@@ -44,13 +44,26 @@ func SetProxyServiceIP(optsClient []client.ListOption) {
 	if len(serviceList.Items) == 0 {
 		log.FromContext(context.Background()).Info("Waiting for proxy service to be created", "namespace", string(namespace), "label", "par.dev/proxy=true")
 		time.Sleep(5 * time.Second)
-		SetProxyServiceIP(optsClient)
+		GetProxyServiceIP()
 		return
 	}
 
 	log.FromContext(context.Background()).Info("Found proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")
 
-	proxyIP := serviceList.Items[0].Spec.ClusterIP
+	proxyIP = serviceList.Items[0].Spec.ClusterIP
+	storage.ProxyAddress = proxyIP
+
+}
+
+func SetProxyServiceIP(optsClient []client.ListOption) {
+	// Set the proxy service IP in the storage map when source pod is requested
+
+	if proxyIP == "" {
+		GetProxyServiceIP()
+	}
+	if renderComplete == 0 {
+		renderProxyConfig(proxyIP)
+	}
 
 	var podList corev1.PodList
 
@@ -58,10 +71,9 @@ func SetProxyServiceIP(optsClient []client.ListOption) {
 
 	for _, pod := range podList.Items {
 		log.FromContext(context.Background()).Info("Setting Dns to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", proxyIP)
-		storage.SourceHostMap[pod.Status.PodIP] = net.ParseIP(proxyIP)
+		storage.ToProxySourceHostMap[pod.Status.PodIP] = net.ParseIP(proxyIP)
 	}
 
-	renderProxyConfig(proxyIP)
 	log.FromContext(context.Background()).Info("Proxy is ready", "namespace", string(namespace), "label", "par.dev/proxy=true")
 
 }
@@ -147,5 +159,6 @@ func renderProxyConfig(proxyIP string) {
 			"namespace", deployment.Namespace, "name", deployment.Name)
 
 	}
+	renderComplete = 1
 
 }

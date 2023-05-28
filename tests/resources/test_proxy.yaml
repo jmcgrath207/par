@@ -1,3 +1,6 @@
+
+
+
 commonLabels:
   par.dev/proxy: "true"
   par.dev/proxy-config: "true"
@@ -5,8 +8,8 @@ commonLabels:
 image:
   debug: true
 
-service:
-  type: ClusterIP
+containerPorts:
+  http: 8080
 
 # Issues with the default nginx config rendering
 serverBlock: |-
@@ -15,7 +18,7 @@ serverBlock: |-
 
       location / {
           resolver {{ `{{ .dnsResolver }}` }};
-          proxy_pass https://$http_x_forwarded_to; 
+          proxy_pass https://$http_x_forwarded_to;
           proxy_ssl_server_name on;
       }
   }

@@ -7,10 +7,11 @@ import (
 )
 
 var (
-	recordMap     map[string]map[string]interface{}
-	SourceHostMap = map[string]net.IP{}
-	ClientK8s     client.Client
-	Mgr           ctrl.Manager
+	recordMap            map[string]map[string]interface{}
+	ToProxySourceHostMap = map[string]net.IP{}
+	ClientK8s            client.Client
+	Mgr                  ctrl.Manager
+	ProxyAddress         string
 )
 
 func Start(mgr ctrl.Manager) {

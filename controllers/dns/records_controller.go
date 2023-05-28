@@ -18,6 +18,7 @@ package dns
 
 import (
 	"context"
+	"fmt"
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/jmcgrath207/par/controllers/deployment"
 	"github.com/jmcgrath207/par/proxy"
@@ -53,6 +54,7 @@ func (r *RecordsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		r.SetManagerAddress(ctx)
 		r.BackFillRecords(ctx)
 		initReconcile = 1
+		return ctrl.Result{}, nil
 	}
 	var records dnsv1alpha1.Records
 
@@ -93,16 +95,6 @@ func (r *RecordsReconciler) BackFillRecords(ctx context.Context) (ctrl.Result, e
 	return ctrl.Result{}, nil
 }
 
-func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, records dnsv1alpha1.Records, namespaces []string) {
-	if err := (&deployment.DeploymentReconciler{
-		Client: storage.Mgr.GetClient(),
-		Scheme: storage.Mgr.GetScheme(),
-	}).SetupWithManager(storage.Mgr, records, namespaces); err != nil {
-		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment")
-		os.Exit(1)
-	}
-}
-
 func (r *RecordsReconciler) SetManagerAddress(ctx context.Context) {
 
 	// Find all services that match the labels in of par.dev/manager: true
@@ -124,12 +116,9 @@ func (r *RecordsReconciler) SetManagerAddress(ctx context.Context) {
 	}
 	managerAddress = serviceList.Items[0].Spec.ClusterIP
 	log.FromContext(ctx).Info("found service par manager service", "service", serviceList.Items[0].Spec.ClusterIP)
-	proxy.SetProxyServiceIP(opts)
 }
 
 func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alpha1.Records) {
-
-	records.Spec.ManagerAddress = managerAddress
 
 	var namespaces []string
 
@@ -138,13 +127,42 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 		attrName := val.Type().Field(i).Name
 		// TODO: make this better
 		if attrName == "A" {
-			for _, x := range records.Spec.A {
+			for y, x := range records.Spec.A {
 				storage.SetRecord(attrName, x.HostName, x)
 				namespaces = append(namespaces, x.Namespaces...)
 				log.FromContext(ctx).Info("Reconciling record", "Record Type", attrName, "Hostname", x.HostName)
+				if x.ForwardType == "manager" {
+					r.InvokeDeploymentManager(ctx, managerAddress, namespaces, fmt.Sprintf("A record "+string(rune(y))))
+				} else if x.ForwardType == "proxy" {
+					// Proxy forward
+					r.SetProxy(ctx, x)
+					r.InvokeDeploymentManager(ctx, storage.ProxyAddress, namespaces, fmt.Sprintf("A record "+string(rune(y))))
+				} else {
+					log.FromContext(ctx).Info("No forward type found in record")
+					os.Exit(1)
+				}
 			}
 		}
 	}
 
-	r.InvokeDeploymentManager(ctx, records, namespaces)
+}
+func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, dnsServerAddress string, namespaces []string, name string) {
+	if err := (&deployment.DeploymentReconciler{
+		Client: storage.Mgr.GetClient(),
+		Scheme: storage.Mgr.GetScheme(),
+	}).SetupWithManager(storage.Mgr, dnsServerAddress, namespaces, name); err != nil {
+		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment")
+		os.Exit(1)
+	}
+}
+func (r *RecordsReconciler) SetProxy(ctx context.Context, record dnsv1alpha1.ARecordsSpec) {
+	log.FromContext(ctx).Info("Waiting for proxy to be ready")
+	var opts []client.ListOption
+	for _, ns := range record.Namespaces {
+		opts = append(opts, client.InNamespace(ns))
+	}
+	opts = append(opts, client.MatchingLabels(record.Labels))
+
+	proxy.SetProxyServiceIP(opts)
+	log.FromContext(ctx).Info("Proxy is ready")
 }

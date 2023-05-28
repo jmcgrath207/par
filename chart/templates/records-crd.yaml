@@ -35,6 +35,8 @@ spec:
           spec:
             properties:
               a:
+                description: Foo is an example field of Records. Edit records_types.go
+                  to remove/update
                 items:
                   properties:
                     forward-type:
@@ -61,10 +63,6 @@ spec:
                   - namespaces
                   type: object
                 type: array
-              manager-address:
-                description: Foo is an example field of Records. Edit records_types.go
-                  to remove/update
-                type: string
             type: object
           status:
             description: RecordsStatus defines the observed state of Records

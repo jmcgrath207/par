@@ -30,8 +30,7 @@ type RecordsSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Records. Edit records_types.go to remove/update
-	ManagerAddress string         `json:"manager-address,omitempty"`
-	A              []ARecordsSpec `json:"a,omitempty"`
+	A []ARecordsSpec `json:"a,omitempty"`
 }
 
 type ARecordsSpec struct {

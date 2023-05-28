@@ -3,19 +3,19 @@ kind: Deployment
 metadata:
   name: example-deployment-wget-no-record
   labels:
-    app: example
+    app: example-proxy
     app-type: example-deployment-wget-no-record
   namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: example
+      app: example-proxy
       app-type: example-deployment-wget-no-record
   template:
     metadata:
       labels:
-        app: example
+        app: example-proxy
         app-type: example-deployment-wget-no-record
     spec:
       containers:

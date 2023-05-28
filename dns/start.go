@@ -68,14 +68,13 @@ func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
 	var ipSlice []net.IP
 
 	// force traffic to go through proxy
-	proxyIP, ok := storage.SourceHostMap[clientIP.String()]
+	proxyIP, ok := storage.ToProxySourceHostMap[clientIP.String()]
 	if ok {
 		log.FromContext(context.Background()).Info("Found client IP in storage, returning proxy IP",
 			"domainName", domainName, "ips", proxyIP, "clientIP", clientIP)
 		return append(ipSlice, proxyIP), nil
 	}
 
-	// TODO: add a dictionary lookup to return a IPslice after object lookup to improve lookup speed.
 	val, ok := storage.GetRecord("A", domainName)
 	if ok {
 		aRecord := val.(dnsv1alpha1.ARecordsSpec)

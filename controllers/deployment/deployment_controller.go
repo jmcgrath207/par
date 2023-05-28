@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"fmt"
-	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/jmcgrath207/par/storage"
 	"github.com/patrickmn/go-cache"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,7 +21,7 @@ type DeploymentReconciler struct {
 	Scheme              *runtime.Scheme
 	deploymentNameCache *cache.Cache
 	controllerName      string
-	managerAddress      string
+	dnsServerAddress    string
 	namespaces          []string
 }
 
@@ -90,11 +89,11 @@ func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, records dnsv1alpha1.Records, namespaces []string) error {
+func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddress string, namespaces []string, name string) error {
 	w.deploymentNameCache = cache.New(30*time.Second, 1*time.Minute)
-	w.managerAddress = records.Spec.ManagerAddress
+	w.dnsServerAddress = dnsServerAddress
 	w.namespaces = namespaces
-	w.controllerName = fmt.Sprintf(records.Name + " deployment")
+	w.controllerName = fmt.Sprintf(name + " deployment")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}).
 		Named(w.controllerName).
@@ -126,22 +125,22 @@ func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ct
 
 	// Add a new DNS configuration to the deployment's pod template with the updated IP address.
 	deploymentClone.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
-		Nameservers: []string{w.managerAddress},
+		Nameservers: []string{w.dnsServerAddress},
 	}
 
 	deploymentClone.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
 	log.FromContext(context.Background()).Info("updating deployment dns policy to point to service dnsIP of par manager",
-		"deployment", deploymentClone.Name, "dnsIP", w.managerAddress)
+		"deployment", deploymentClone.Name, "dnsIP", w.dnsServerAddress)
 
 	err := storage.ClientK8s.Patch(context.TODO(), deploymentClone, client.MergeFrom(&deployment))
 	if err != nil {
 		log.FromContext(context.Background()).Error(err, "could not update deployment dns policy to point to service dnsIP of par manager",
-			"deployment", deploymentClone.Name, "dnsIP", w.managerAddress)
+			"deployment", deploymentClone.Name, "dnsIP", w.dnsServerAddress)
 
 		return ctrl.Result{}, err
 	}
 	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager",
-		"deployment", deploymentClone.Name, "dnsIP", w.managerAddress)
+		"deployment", deploymentClone.Name, "dnsIP", w.dnsServerAddress)
 
 	return ctrl.Result{}, nil
 }

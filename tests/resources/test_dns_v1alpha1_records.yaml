@@ -15,7 +15,7 @@ spec:
       - default
       - test
     labels:
-      app: example
+      app: example-proxy
     hostname: google.com
     ip-addresses:
       - 1.1.1.1
@@ -25,7 +25,7 @@ spec:
       - default
       - test
     labels:
-      app: example
+      app: example-manager
     hostname: facebook.com
     ip-addresses:
       - 1.1.1.3
