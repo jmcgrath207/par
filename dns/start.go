@@ -13,7 +13,6 @@ import (
 
 func Start() {
 	server := &dns.Server{Addr: ":9000", Net: "udp"}
-	<-storage.ProxyReady
 	log.FromContext(context.Background()).Info("Starting DNS server", "port", "9000")
 	server.Handler = dns.HandlerFunc(handleDNSRequest)
 	err := server.ListenAndServe()
@@ -76,11 +75,15 @@ func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
 		return append(ipSlice, proxyIP), nil
 	}
 
+	// TODO: add a dictionary lookup to return a IPslice after object lookup to improve lookup speed.
 	val, ok := storage.GetRecord("A", domainName)
 	if ok {
 		aRecord := val.(dnsv1alpha1.ARecordsSpec)
-		log.FromContext(context.Background()).Info("Found A record in storage, returning ip", "domainName", domainName, "ips", aRecord.IPAddress, "clientIP", clientIP)
-		return append(ipSlice, net.ParseIP(aRecord.IPAddress)), nil
+		log.FromContext(context.Background()).Info("Found A record in storage, returning ip", "domainName", domainName, "ips", aRecord.IPAddresses, "clientIP", clientIP)
+		for _, ip := range aRecord.IPAddresses {
+			ipSlice = append(ipSlice, net.ParseIP(ip))
+		}
+		return ipSlice, nil
 	}
 
 	ips, err := net.LookupIP(domainName)

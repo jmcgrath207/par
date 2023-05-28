@@ -35,10 +35,10 @@ type RecordsSpec struct {
 }
 
 type ARecordsSpec struct {
-	Namespaces  string            `json:"namespaces"`
+	Namespaces  []string          `json:"namespaces"`
 	Labels      map[string]string `json:"labels"`
 	HostName    string            `json:"hostname"`
-	IPAddress   string            `json:"ip-address"`
+	IPAddresses []string          `json:"ip-addresses"`
 	ForwardType string            `json:"forward-type"`
 }
 

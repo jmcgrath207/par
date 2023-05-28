@@ -41,18 +41,22 @@ spec:
                       type: string
                     hostname:
                       type: string
-                    ip-address:
-                      type: string
+                    ip-addresses:
+                      items:
+                        type: string
+                      type: array
                     labels:
                       additionalProperties:
                         type: string
                       type: object
                     namespaces:
-                      type: string
+                      items:
+                        type: string
+                      type: array
                   required:
                   - forward-type
                   - hostname
-                  - ip-address
+                  - ip-addresses
                   - labels
                   - namespaces
                   type: object

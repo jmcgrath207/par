@@ -26,21 +26,22 @@ type DeploymentReconciler struct {
 	namespaces          []string
 }
 
-func haveSameKeys(map1, map2 map[string]string) bool {
-
-	// Iterate over the keys of map1 and check if they exist in map2
-	for key, val := range map1 {
-		_, ok := map2[key]
-		if ok {
-			if map1[val] == map2[val] {
-				continue
-			}
-			return false
-		}
-		return false
-	}
-	return true
-}
+// TODO: add label filter
+//func haveSameKeys(map1, map2 map[string]string) bool {
+//
+//	// Iterate over the keys of map1 and check if they exist in map2
+//	for key, val := range map1 {
+//		_, ok := map2[key]
+//		if ok {
+//			if map1[val] == map2[val] {
+//				continue
+//			}
+//			return false
+//		}
+//		return false
+//	}
+//	return true
+//}
 
 func Contains[T comparable](s []T, e T) bool {
 	for _, v := range s {
@@ -145,6 +146,7 @@ func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ct
 	return ctrl.Result{}, nil
 }
 
+// TODO: Add Host Alias Feature later
 //func HostAlias(ctx context.Context, deployment appsv1.Deployment, aRecord dnsv1.Arecord) {
 //	// Update the deployment object's hostAliases field
 //	deployment.Spec.Template.Spec.HostAliases = []corev1.HostAlias{

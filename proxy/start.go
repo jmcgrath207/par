@@ -62,7 +62,6 @@ func SetProxyServiceIP(optsClient []client.ListOption) {
 	}
 
 	renderProxyConfig(proxyIP)
-	storage.ProxyReady <- true
 	log.FromContext(context.Background()).Info("Proxy is ready", "namespace", string(namespace), "label", "par.dev/proxy=true")
 
 }

@@ -11,9 +11,23 @@ metadata:
   namespace: default
 spec:
   a:
-  - namespaces: default
+  - namespaces:
+      - default
+      - test
     labels:
       app: example
     hostname: google.com
-    ip-address: 1.1.1.1
+    ip-addresses:
+      - 1.1.1.1
+      - 1.1.1.2
     forward-type: proxy
+  - namespaces:
+      - default
+      - test
+    labels:
+      app: example
+    hostname: facebook.com
+    ip-addresses:
+      - 1.1.1.3
+      - 1.1.1.4
+    forward-type: manager

@@ -140,7 +140,7 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 		if attrName == "A" {
 			for _, x := range records.Spec.A {
 				storage.SetRecord(attrName, x.HostName, x)
-				namespaces = append(namespaces, x.Namespaces)
+				namespaces = append(namespaces, x.Namespaces...)
 				log.FromContext(ctx).Info("Reconciling record", "Record Type", attrName, "Hostname", x.HostName)
 			}
 		}

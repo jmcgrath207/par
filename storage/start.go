@@ -9,14 +9,12 @@ import (
 var (
 	recordMap     map[string]map[string]interface{}
 	SourceHostMap = map[string]net.IP{}
-	ProxyReady    chan bool
 	ClientK8s     client.Client
 	Mgr           ctrl.Manager
 )
 
 func Start(mgr ctrl.Manager) {
 	recordMap = make(map[string]map[string]interface{})
-	ProxyReady = make(chan bool)
 	ClientK8s = mgr.GetClient()
 	Mgr = mgr
 }

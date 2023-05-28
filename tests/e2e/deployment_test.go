@@ -151,29 +151,25 @@ func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, checkSlice []stri
 }
 
 // TODO: add test following test
-// kill manager pods and make sure it works
-// update a entry a Arecord ip address entry
-// remove a Arecord entry and make sure it's evicted from DNS cache
-// add HostAlias Test
-// add Non Proxy Test
-// Add Cname Test
+// kill manager pods and make sure it works - working
+// update a entry a Arecord ip address entry - working
+// remove a Arecord entry and make sure it's evicted from DNS cache - working
 var _ = ginkgo.Describe("Test Deployments on Arecords\n", func() {
 
 	ginkgo.Context("Test Deployment that queries a domain that is IN ARecord\n", func() {
 		deployment := createDeployment("../resources/test_a_record_deployment.yaml")
-		//defer cleanupResource(deployment)
 		// TODO: check logs on manager if deployment is ready
 		time.Sleep(10 * time.Second)
 		ginkgo.Specify("Does return a Proxy IP address upon DNS lookup from Par Manager Address\n", func() {
 			var checkSlice []string
-			checkSlice = append(checkSlice, "google.com", records.Spec.A[0].IPAddress)
+			checkSlice = append(checkSlice, "google.com",
+				records.Spec.A[0].IPAddresses[0], records.Spec.A[0].IPAddresses[1])
 			CheckPodLogsFromDeployment(deployment, checkSlice)
 		})
 	})
 
 	ginkgo.Context("Test Deployment that queries a domain that is IN ARecord with PROXY\n", func() {
 		deployment := createDeployment("../resources/test_wget_a_record_deployment.yaml")
-		//defer cleanupResource(deployment)
 		// TODO: check logs on manager if deployment is ready
 		time.Sleep(10 * time.Second)
 		ginkgo.Specify("Does return a Proxy IP address upon DNS lookup from Par Manager Address\n", func() {
@@ -186,7 +182,6 @@ var _ = ginkgo.Describe("Test Deployments on Arecords\n", func() {
 
 	ginkgo.Context("Test Deployment that queries a domain NOT IN ARecord with PROXY\n", func() {
 		deployment := createDeployment("../resources/test_wget_no_record_deployment.yaml")
-		//defer cleanupResource(deployment)
 		// TODO: check logs on manager if deployment is ready
 		time.Sleep(10 * time.Second)
 		ginkgo.Specify("Does not return a Proxy IP address upon DNS lookup from Par Manager Address, only Upstream DNS\n", func() {
@@ -199,7 +194,6 @@ var _ = ginkgo.Describe("Test Deployments on Arecords\n", func() {
 
 	ginkgo.Context("Test Deployment that queries a domain NOT IN ARecord\n", func() {
 		deployment := createDeployment("../resources/test_no_record_deployment.yaml")
-		//defer cleanupResource(deployment)
 		// TODO: check logs on manager if deployment is ready
 		time.Sleep(10 * time.Second)
 		ginkgo.Specify("Does not return a Proxy IP address upon DNS lookup from Par Manager Address, only Upstream DNS\n", func() {
