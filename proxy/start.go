@@ -24,6 +24,7 @@ func Start() {
 	//k8sClient = clientK8s
 	k8sClient = client.NewNamespacedClient(storage.ClientK8s, string(namespace))
 	GetProxyServiceIP()
+	//TODO need to pass the managerIP address instead.
 	renderProxyConfig(proxyIP)
 	storage.ProxyReady <- true
 }
@@ -34,19 +35,21 @@ func GetProxyServiceIP() {
 		client.InNamespace(namespace),
 		client.MatchingLabels(map[string]string{"par.dev/proxy": "true"}),
 	}
+	for {
+		log.FromContext(context.Background()).Info("Looking for proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")
+		err := k8sClient.List(context.Background(), serviceList, opts...)
+		if err != nil {
+			log.FromContext(context.Background()).Info("Waiting for proxy service to be created", "namespace", string(namespace), "label", "par.dev/proxy=true")
+			time.Sleep(5 * time.Second)
+			continue
+		}
 
-	log.FromContext(context.Background()).Info("Looking for proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")
-	err := k8sClient.List(context.Background(), serviceList, opts...)
-	if err != nil {
-		log.FromContext(context.Background()).Info("Waiting for proxy service to be created", "namespace", string(namespace), "label", "par.dev/proxy=true")
-		time.Sleep(5 * time.Second)
-		GetProxyServiceIP()
-	}
-
-	if len(serviceList.Items) == 0 {
-		log.FromContext(context.Background()).Info("Waiting for proxy service to be created", "namespace", string(namespace), "label", "par.dev/proxy=true")
-		time.Sleep(5 * time.Second)
-		GetProxyServiceIP()
+		if serviceList.Items == nil {
+			log.FromContext(context.Background()).Info("Waiting for proxy service to be created", "namespace", string(namespace), "label", "par.dev/proxy=true")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		break
 	}
 
 	log.FromContext(context.Background()).Info("Found proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")

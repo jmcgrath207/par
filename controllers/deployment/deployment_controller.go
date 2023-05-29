@@ -23,7 +23,7 @@ type DeploymentReconciler struct {
 	deploymentNameCache *cache.Cache
 	controllerName      string
 	dnsServerAddress    string
-	namespaces          []string
+	namespace           string
 	labels              map[string]string
 	id                  string
 	clientIDSet         int
@@ -40,27 +40,18 @@ func haveSameKeys(map1, map2 map[string]string) bool {
 	return true
 }
 
-func Contains[T comparable](s []T, e T) bool {
-	for _, v := range s {
-		if v == e {
-			return true
-		}
-	}
-	return false
-}
-
 // Define a predicate function to filter out unwanted events
 func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			if Contains(w.namespaces, e.Object.GetNamespace()) {
+			if w.namespace == e.Object.GetNamespace() {
 				log.FromContext(context.Background()).Info("Reconcile Create", "deployment", e.Object.GetName(), "controller", w.controllerName)
 				return haveSameKeys(w.labels, e.Object.GetLabels())
 			}
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if Contains(w.namespaces, e.ObjectNew.GetNamespace()) {
+			if w.namespace == e.ObjectNew.GetNamespace() {
 				if haveSameKeys(w.labels, e.ObjectNew.GetLabels()) {
 					_, value := w.deploymentNameCache.Get(e.ObjectNew.GetName())
 					if !value {
@@ -84,7 +75,7 @@ func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddress string, namespaces []string, name string, labels map[string]string, id string, forwardType string) error {
+func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddress string, namespace string, name string, labels map[string]string, id string, forwardType string) error {
 	w.deploymentNameCache = cache.New(30*time.Second, 1*time.Minute)
 	w.fowardType = forwardType
 	w.dnsServerAddress = dnsServerAddress
@@ -94,7 +85,7 @@ func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddre
 		log.FromContext(context.Background()).Info("Proxy Ready")
 		w.dnsServerAddress = storage.ProxyAddress
 	}
-	w.namespaces = namespaces
+	w.namespace = namespace
 	w.labels = labels
 	w.id = id
 	w.controllerName = fmt.Sprintf(name + " deployment")
@@ -148,26 +139,33 @@ func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ct
 }
 
 func (w *DeploymentReconciler) SetClientData() {
-	opts := w.GenerateListClientOpts()
 	var podList corev1.PodList
+	opts := []client.ListOption{
+		client.MatchingLabels(w.labels),
+		client.InNamespace(w.namespace),
+	}
 
-	w.List(context.Background(), &podList, opts...)
+	for {
+		w.List(context.Background(), &podList, opts...)
+		count := 0
+		podCount := len(podList.Items)
 
-	for _, pod := range podList.Items {
-		storage.ClientId[pod.Status.PodIP] = w.id
-		if w.fowardType == "proxy" {
-			log.FromContext(context.Background()).Info("Setting Dns to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", storage.ProxyAddress)
-			storage.ToProxySourceHostMap[pod.Status.PodIP] = net.IP(storage.ProxyAddress)
+		for _, pod := range podList.Items {
+			if pod.Status.Phase != "Running" {
+				break
+			}
+			storage.ClientId[pod.Status.PodIP] = w.id
+			if w.fowardType == "proxy" {
+				log.FromContext(context.Background()).Info("Setting Dns to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", storage.ProxyAddress)
+				storage.ToProxySourceHostMap[pod.Status.PodIP] = net.IP(storage.ProxyAddress)
+			}
+			count = count + 1
 		}
+		if count == podCount {
+			break
+		}
+		time.Sleep(5 * time.Second)
 	}
-}
-func (w *DeploymentReconciler) GenerateListClientOpts() []client.ListOption {
-	// TODO: These Client Opts aren't working
-	var opts []client.ListOption
-	for _, ns := range w.namespaces {
-		opts = append(opts, client.InNamespace(ns))
-	}
-	return append(opts, client.MatchingLabels(w.labels))
 }
 
 // TODO: Add Host Alias Feature later

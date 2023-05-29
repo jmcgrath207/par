@@ -24,7 +24,6 @@ func Start(mgr ctrl.Manager) {
 }
 
 func SetRecord(recordType string, hostname string, record interface{}) {
-	hostname = hostname + "."
 	if recordMap[hostname] == nil {
 		recordMap[hostname] = make(map[string]interface{})
 	}

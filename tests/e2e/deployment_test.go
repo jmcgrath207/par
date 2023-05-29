@@ -176,7 +176,7 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 		ginkgo.Specify("Does return a Proxy IP address upon DNS lookup from Par Manager Address\n", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "google.com",
-				records.Spec.A[0].IPAddresses[0], records.Spec.A[0].IPAddresses[1])
+				records.Spec.A[1].IPAddresses[0], records.Spec.A[1].IPAddresses[1])
 			CheckPodLogsFromDeployment(deployment, checkSlice)
 		})
 	})

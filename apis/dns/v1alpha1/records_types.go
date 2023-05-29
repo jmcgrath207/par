@@ -34,7 +34,6 @@ type RecordsSpec struct {
 }
 
 type ARecordsSpec struct {
-	Namespaces  []string          `json:"namespaces"`
 	Labels      map[string]string `json:"labels"`
 	HostName    string            `json:"hostname"`
 	IPAddresses []string          `json:"ip-addresses"`

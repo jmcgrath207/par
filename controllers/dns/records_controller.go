@@ -129,20 +129,20 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 			for _, x := range records.Spec.A {
 				u, _ := uuid.NewRandom()
 				id := u.String()
-				storage.SetRecord(attrName, x.HostName+id, x)
+				storage.SetRecord(attrName, x.HostName+"."+id, x)
 				log.FromContext(ctx).Info("Reconciling record", "Record Type", attrName, "Hostname", x.HostName)
-				r.InvokeDeploymentManager(ctx, managerAddress, x.Namespaces, fmt.Sprintf("A record "+string(rune(count))), x.Labels, id, x.ForwardType)
+				r.InvokeDeploymentManager(ctx, managerAddress, records.ObjectMeta.Namespace, fmt.Sprintf("A record "+string(rune(count))), x.Labels, id, x.ForwardType)
 				count = count + 1
 			}
 		}
 	}
 
 }
-func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, dnsServerAddress string, namespaces []string, name string, labels map[string]string, id string, forwardType string) {
+func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, dnsServerAddress string, namespace string, name string, labels map[string]string, id string, forwardType string) {
 	if err := (&deployment.DeploymentReconciler{
 		Client: storage.Mgr.GetClient(),
 		Scheme: storage.Mgr.GetScheme(),
-	}).SetupWithManager(storage.Mgr, dnsServerAddress, namespaces, name, labels, id, forwardType); err != nil {
+	}).SetupWithManager(storage.Mgr, dnsServerAddress, namespace, name, labels, id, forwardType); err != nil {
 		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment"+name)
 		os.Exit(1)
 	}

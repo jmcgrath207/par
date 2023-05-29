@@ -11,20 +11,14 @@ metadata:
   namespace: default
 spec:
   a:
-  - namespaces:
-      - default
-      - test
-    labels:
+  - labels:
       app: example-proxy
     hostname: google.com
     ip-addresses:
       - 1.1.1.1
       - 1.1.1.2
     forward-type: proxy
-  - namespaces:
-      - default
-      - test
-    labels:
+  - labels:
       app: example-manager
     hostname: google.com
     ip-addresses:

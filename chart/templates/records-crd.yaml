@@ -51,16 +51,11 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
-                    namespaces:
-                      items:
-                        type: string
-                      type: array
                   required:
                   - forward-type
                   - hostname
                   - ip-addresses
                   - labels
-                  - namespaces
                   type: object
                 type: array
             type: object
