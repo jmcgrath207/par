@@ -12,11 +12,14 @@ var (
 	ClientK8s            client.Client
 	Mgr                  ctrl.Manager
 	ProxyAddress         string
+	ClientId             = map[string]string{}
+	ProxyReady           chan bool
 )
 
 func Start(mgr ctrl.Manager) {
 	recordMap = make(map[string]map[string]interface{})
 	ClientK8s = mgr.GetClient()
+	ProxyReady = make(chan bool)
 	Mgr = mgr
 }
 

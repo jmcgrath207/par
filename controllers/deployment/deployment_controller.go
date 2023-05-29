@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -24,20 +25,17 @@ type DeploymentReconciler struct {
 	dnsServerAddress    string
 	namespaces          []string
 	labels              map[string]string
+	id                  string
+	clientIDSet         int
+	fowardType          string
 }
 
 func haveSameKeys(map1, map2 map[string]string) bool {
-	// TODO: label filter is broken
-	// Iterate over the keys of map1 and check if they exist in map2
-	for key, val := range map1 {
-		_, ok := map2[key]
-		if ok {
-			if map1[val] == map2[val] {
-				continue
-			}
+	// Check if each key-value pair in map1 is present in map2
+	for key, value := range map1 {
+		if val, ok := map2[key]; !ok || val != value {
 			return false
 		}
-		return false
 	}
 	return true
 }
@@ -86,11 +84,19 @@ func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddress string, namespaces []string, name string, labels map[string]string) error {
+func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddress string, namespaces []string, name string, labels map[string]string, id string, forwardType string) error {
 	w.deploymentNameCache = cache.New(30*time.Second, 1*time.Minute)
+	w.fowardType = forwardType
 	w.dnsServerAddress = dnsServerAddress
+	if forwardType == "proxy" {
+		log.FromContext(context.Background()).Info("Waiting on Proxy")
+		<-storage.ProxyReady
+		log.FromContext(context.Background()).Info("Proxy Ready")
+		w.dnsServerAddress = storage.ProxyAddress
+	}
 	w.namespaces = namespaces
 	w.labels = labels
+	w.id = id
 	w.controllerName = fmt.Sprintf(name + " deployment")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}).
@@ -109,15 +115,12 @@ func (w *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// after processing a New Deployment.
 	deployment := &appsv1.Deployment{}
 	w.Get(ctx, req.NamespacedName, deployment)
-	if deployment.Name == "" {
-		log.FromContext(context.Background()).Info("Skipping no name Deployment...", "deployment", req.NamespacedName)
-		return ctrl.Result{}, nil
-	}
 	return w.UpdateDnsClient(*deployment)
 
 }
 
 func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ctrl.Result, error) {
+
 	w.deploymentNameCache.Set(deployment.Name, 1, cache.DefaultExpiration)
 	deploymentClone := deployment.DeepCopy()
 
@@ -140,7 +143,31 @@ func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ct
 	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager",
 		"deployment", deploymentClone.Name, "dnsIP", w.dnsServerAddress)
 
+	w.SetClientData()
 	return ctrl.Result{}, nil
+}
+
+func (w *DeploymentReconciler) SetClientData() {
+	opts := w.GenerateListClientOpts()
+	var podList corev1.PodList
+
+	w.List(context.Background(), &podList, opts...)
+
+	for _, pod := range podList.Items {
+		storage.ClientId[pod.Status.PodIP] = w.id
+		if w.fowardType == "proxy" {
+			log.FromContext(context.Background()).Info("Setting Dns to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", storage.ProxyAddress)
+			storage.ToProxySourceHostMap[pod.Status.PodIP] = net.IP(storage.ProxyAddress)
+		}
+	}
+}
+func (w *DeploymentReconciler) GenerateListClientOpts() []client.ListOption {
+	// TODO: These Client Opts aren't working
+	var opts []client.ListOption
+	for _, ns := range w.namespaces {
+		opts = append(opts, client.InNamespace(ns))
+	}
+	return append(opts, client.MatchingLabels(w.labels))
 }
 
 // TODO: Add Host Alias Feature later

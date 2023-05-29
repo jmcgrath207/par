@@ -104,8 +104,8 @@ func main() {
 	}
 
 	storage.Start(mgr)
-	go dns.Start()
 	go proxy.Start()
+	go dns.Start()
 
 	if err = (&dnscontrollers.RecordsReconciler{
 		Client: mgr.GetClient(),

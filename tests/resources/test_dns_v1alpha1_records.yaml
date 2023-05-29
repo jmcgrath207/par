@@ -26,7 +26,7 @@ spec:
       - test
     labels:
       app: example-manager
-    hostname: facebook.com
+    hostname: google.com
     ip-addresses:
       - 1.1.1.3
       - 1.1.1.4

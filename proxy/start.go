@@ -7,7 +7,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -17,7 +16,6 @@ import (
 
 var k8sClient client.Client
 var namespace []byte
-var renderComplete int
 var proxyIP string
 
 func Start() {
@@ -25,6 +23,9 @@ func Start() {
 	// TODO: keeps on requests are cluster level and not namespaced in RBAC rules
 	//k8sClient = clientK8s
 	k8sClient = client.NewNamespacedClient(storage.ClientK8s, string(namespace))
+	GetProxyServiceIP()
+	renderProxyConfig(proxyIP)
+	storage.ProxyReady <- true
 }
 
 func GetProxyServiceIP() {
@@ -37,44 +38,21 @@ func GetProxyServiceIP() {
 	log.FromContext(context.Background()).Info("Looking for proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")
 	err := k8sClient.List(context.Background(), serviceList, opts...)
 	if err != nil {
-		log.FromContext(context.Background()).Error(err, "Error getting proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")
-		panic(err)
+		log.FromContext(context.Background()).Info("Waiting for proxy service to be created", "namespace", string(namespace), "label", "par.dev/proxy=true")
+		time.Sleep(5 * time.Second)
+		GetProxyServiceIP()
 	}
 
 	if len(serviceList.Items) == 0 {
 		log.FromContext(context.Background()).Info("Waiting for proxy service to be created", "namespace", string(namespace), "label", "par.dev/proxy=true")
 		time.Sleep(5 * time.Second)
 		GetProxyServiceIP()
-		return
 	}
 
 	log.FromContext(context.Background()).Info("Found proxy service", "namespace", string(namespace), "label", "par.dev/proxy=true")
 
 	proxyIP = serviceList.Items[0].Spec.ClusterIP
 	storage.ProxyAddress = proxyIP
-
-}
-
-func SetProxyServiceIP(optsClient []client.ListOption) {
-	// Set the proxy service IP in the storage map when source pod is requested
-
-	if proxyIP == "" {
-		GetProxyServiceIP()
-	}
-	if renderComplete == 0 {
-		renderProxyConfig(proxyIP)
-	}
-
-	var podList corev1.PodList
-
-	k8sClient.List(context.Background(), &podList, optsClient...)
-
-	for _, pod := range podList.Items {
-		log.FromContext(context.Background()).Info("Setting Dns to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", proxyIP)
-		storage.ToProxySourceHostMap[pod.Status.PodIP] = net.ParseIP(proxyIP)
-	}
-
-	log.FromContext(context.Background()).Info("Proxy is ready", "namespace", string(namespace), "label", "par.dev/proxy=true")
 
 }
 
@@ -159,6 +137,5 @@ func renderProxyConfig(proxyIP string) {
 			"namespace", deployment.Namespace, "name", deployment.Name)
 
 	}
-	renderComplete = 1
 
 }

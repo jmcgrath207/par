@@ -67,22 +67,25 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
 	var ipSlice []net.IP
 
-	// force traffic to go through proxy
+	// force traffic to go through proxy by return proxy address
 	proxyIP, ok := storage.ToProxySourceHostMap[clientIP.String()]
 	if ok {
 		log.FromContext(context.Background()).Info("Found client IP in storage, returning proxy IP",
 			"domainName", domainName, "ips", proxyIP, "clientIP", clientIP)
 		return append(ipSlice, proxyIP), nil
 	}
-
-	val, ok := storage.GetRecord("A", domainName)
-	if ok {
-		aRecord := val.(dnsv1alpha1.ARecordsSpec)
-		log.FromContext(context.Background()).Info("Found A record in storage, returning ip", "domainName", domainName, "ips", aRecord.IPAddresses, "clientIP", clientIP)
-		for _, ip := range aRecord.IPAddresses {
-			ipSlice = append(ipSlice, net.ParseIP(ip))
+	id, okId := storage.ClientId[clientIP.String()]
+	if okId {
+		val, okRecord := storage.GetRecord("A", domainName+id)
+		if okRecord {
+			aRecord := val.(dnsv1alpha1.ARecordsSpec)
+			log.FromContext(context.Background()).Info("Found A record in storage, returning ip", "domainName", domainName, "ips", aRecord.IPAddresses, "clientIP", clientIP)
+			for _, ip := range aRecord.IPAddresses {
+				ipSlice = append(ipSlice, net.ParseIP(ip))
+			}
+			return ipSlice, nil
 		}
-		return ipSlice, nil
+
 	}
 
 	ips, err := net.LookupIP(domainName)
