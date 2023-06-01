@@ -79,12 +79,6 @@ func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddre
 	w.deploymentNameCache = cache.New(30*time.Second, 1*time.Minute)
 	w.fowardType = forwardType
 	w.dnsServerAddress = dnsServerAddress
-	if forwardType == "proxy" {
-		log.FromContext(context.Background()).Info("Waiting on Proxy")
-		<-storage.ProxyReady
-		log.FromContext(context.Background()).Info("Proxy Ready")
-		w.dnsServerAddress = storage.ProxyAddress
-	}
 	w.namespace = namespace
 	w.labels = labels
 	w.id = id
@@ -134,14 +128,14 @@ func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ct
 	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager",
 		"deployment", deploymentClone.Name, "dnsIP", w.dnsServerAddress)
 
-	w.SetClientData()
+	w.SetClientData(int(*deployment.Spec.Replicas), deployment.Spec.Template.Labels)
 	return ctrl.Result{}, nil
 }
 
-func (w *DeploymentReconciler) SetClientData() {
+func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]string) {
 	var podList corev1.PodList
 	opts := []client.ListOption{
-		client.MatchingLabels(w.labels),
+		client.MatchingLabels(labels),
 		client.InNamespace(w.namespace),
 	}
 
@@ -149,19 +143,26 @@ func (w *DeploymentReconciler) SetClientData() {
 		w.List(context.Background(), &podList, opts...)
 		count := 0
 		podCount := len(podList.Items)
+		if podCount != replicas {
+			time.Sleep(5 * time.Second)
+			continue
+		}
 
 		for _, pod := range podList.Items {
 			if pod.Status.Phase != "Running" {
 				break
 			}
-			storage.ClientId[pod.Status.PodIP] = w.id
+			if w.fowardType == "manager" {
+				storage.ClientId[pod.Status.PodIP] = w.id
+			}
 			if w.fowardType == "proxy" {
 				log.FromContext(context.Background()).Info("Setting Dns to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", storage.ProxyAddress)
-				storage.ToProxySourceHostMap[pod.Status.PodIP] = net.IP(storage.ProxyAddress)
+				<-storage.ProxyReady
+				storage.ToProxySourceHostMap[pod.Status.PodIP] = net.ParseIP(storage.ProxyAddress)
 			}
 			count = count + 1
 		}
-		if count == podCount {
+		if count == replicas {
 			break
 		}
 		time.Sleep(5 * time.Second)

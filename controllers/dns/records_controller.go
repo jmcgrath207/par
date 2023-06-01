@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/jmcgrath207/par/controllers/deployment"
+	"github.com/jmcgrath207/par/proxy"
 	"github.com/jmcgrath207/par/storage"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -52,7 +53,9 @@ func (r *RecordsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// https://sdk.operatorframework.io/docs/building-operators/golang/references/client/#default-client
 	if initReconcile == 0 {
 		r.SetManagerAddress(ctx)
+		go proxy.RenderProxyConfig(managerAddress)
 		r.BackFillRecords(ctx)
+		storage.DNSReady <- true
 		initReconcile = 1
 		return ctrl.Result{}, nil
 	}
@@ -119,6 +122,7 @@ func (r *RecordsReconciler) SetManagerAddress(ctx context.Context) {
 }
 
 func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alpha1.Records) {
+	var id string
 
 	val := reflect.ValueOf(records.Spec)
 	for i := 0; i < val.NumField(); i++ {
@@ -127,8 +131,13 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 		if attrName == "A" {
 			count := 1
 			for _, x := range records.Spec.A {
-				u, _ := uuid.NewRandom()
-				id := u.String()
+				if x.ForwardType == "proxy" {
+					id = "1"
+				} else {
+					//	Assume Manager Forward type
+					u, _ := uuid.NewRandom()
+					id = u.String()
+				}
 				storage.SetRecord(attrName, x.HostName+"."+id, x)
 				log.FromContext(ctx).Info("Reconciling record", "Record Type", attrName, "Hostname", x.HostName)
 				r.InvokeDeploymentManager(ctx, managerAddress, records.ObjectMeta.Namespace, fmt.Sprintf("A record "+string(rune(count))), x.Labels, id, x.ForwardType)

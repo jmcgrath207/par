@@ -25,8 +25,39 @@ func Start() {
 	k8sClient = client.NewNamespacedClient(storage.ClientK8s, string(namespace))
 	GetProxyServiceIP()
 	//TODO need to pass the managerIP address instead.
-	renderProxyConfig(proxyIP)
-	storage.ProxyReady <- true
+}
+
+func setProxyPodsClientId(replicas int) {
+	// Set the Client ID to the Pods of the Proxy
+
+	var podList corev1.PodList
+	opts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(map[string]string{"par.dev/proxy": "true"}),
+	}
+
+	for {
+		k8sClient.List(context.Background(), &podList, opts...)
+		count := 0
+		podCount := len(podList.Items)
+		if podCount != replicas {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		for _, pod := range podList.Items {
+			if pod.Status.Phase != "Running" {
+				count = count - 1
+				break
+			}
+			storage.ClientId[pod.Status.PodIP] = "1"
+			count = count + 1
+		}
+		if count == podCount {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func GetProxyServiceIP() {
@@ -59,9 +90,16 @@ func GetProxyServiceIP() {
 
 }
 
-func renderProxyConfig(proxyIP string) {
-
+func RenderProxyConfig(managerIP string) {
 	var buf bytes.Buffer
+
+	// Wait for Proxy IP address
+	for {
+		if proxyIP != "" {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
 
 	serviceList := &corev1.ConfigMapList{}
 
@@ -87,7 +125,7 @@ func renderProxyConfig(proxyIP string) {
 		for k, v := range configMap.Data {
 			templ := template.Must(template.New("").Parse(v))
 			templ.Execute(&buf, map[string]interface{}{
-				"dnsResolver": proxyIP,
+				"dnsResolver": managerIP,
 			})
 			configMap.Data[k] = buf.String()
 			buf.Reset()
@@ -104,7 +142,7 @@ func renderProxyConfig(proxyIP string) {
 		}
 		log.FromContext(context.Background()).Info("Updated proxy config map with Dns Resolver Ip",
 			"namespace", string(namespace), "configMap", configMap.Name,
-			"dnsResolver", proxyIP, "label", "par.dev/proxy-config=true")
+			"dnsResolver", managerIP, "label", "par.dev/proxy-config=true")
 	}
 
 	var deployments appsv1.DeploymentList
@@ -138,7 +176,10 @@ func renderProxyConfig(proxyIP string) {
 		}
 		log.FromContext(context.Background()).Info("Updated proxy deployment to trigger a restart",
 			"namespace", deployment.Namespace, "name", deployment.Name)
+		setProxyPodsClientId(int(*deployment.Spec.Replicas))
 
 	}
+	storage.ProxyReady <- true
+	log.FromContext(context.Background()).Info("Proxy Ready")
 
 }

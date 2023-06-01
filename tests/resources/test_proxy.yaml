@@ -5,6 +5,9 @@ commonLabels:
   par.dev/proxy: "true"
   par.dev/proxy-config: "true"
 
+podLabels:
+  par.dev/proxy: "true"
+
 image:
   debug: true
 
@@ -14,11 +17,11 @@ containerPorts:
 # Issues with the default nginx config rendering
 serverBlock: |-
   server {
-      listen 0.0.0.0:80;
+      listen 8080;
 
       location / {
           resolver {{ `{{ .dnsResolver }}` }};
-          proxy_pass https://$http_x_forwarded_to;
+          proxy_pass http://$http_host$request_uri;
           proxy_ssl_server_name on;
       }
   }

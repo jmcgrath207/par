@@ -14,12 +14,14 @@ var (
 	ProxyAddress         string
 	ClientId             = map[string]string{}
 	ProxyReady           chan bool
+	DNSReady             chan bool
 )
 
 func Start(mgr ctrl.Manager) {
 	recordMap = make(map[string]map[string]interface{})
 	ClientK8s = mgr.GetClient()
 	ProxyReady = make(chan bool)
+	DNSReady = make(chan bool)
 	Mgr = mgr
 }
 

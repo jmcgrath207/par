@@ -15,11 +15,13 @@ func Start() {
 	server := &dns.Server{Addr: ":9000", Net: "udp"}
 	log.FromContext(context.Background()).Info("Starting DNS server", "port", "9000")
 	server.Handler = dns.HandlerFunc(handleDNSRequest)
+	<-storage.DNSReady
 	err := server.ListenAndServe()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start server: %s\n", err.Error())
 		panic(err)
 	}
+	log.FromContext(context.Background()).Info("DNS server running", "port", "9000")
 }
 
 func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
@@ -71,7 +73,7 @@ func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
 	proxyIP, ok := storage.ToProxySourceHostMap[clientIP.String()]
 	if ok {
 		log.FromContext(context.Background()).Info("Found client IP in storage, returning proxy IP",
-			"domainName", domainName, "ips", proxyIP, "clientIP", clientIP)
+			"domainName", domainName, "ips", proxyIP.String(), "clientIP", clientIP)
 		return append(ipSlice, proxyIP), nil
 	}
 	id, okId := storage.ClientId[clientIP.String()]
@@ -79,7 +81,11 @@ func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
 		val, okRecord := storage.GetRecord("A", domainName+id)
 		if okRecord {
 			aRecord := val.(dnsv1alpha1.ARecordsSpec)
-			log.FromContext(context.Background()).Info("Found A record in storage, returning ip", "domainName", domainName, "ips", aRecord.IPAddresses, "clientIP", clientIP)
+			if id == "1" {
+				log.FromContext(context.Background()).Info("Found A record in storage for Proxy, returning ip", "domainName", domainName, "ips", aRecord.IPAddresses, "clientIP", clientIP)
+			} else {
+				log.FromContext(context.Background()).Info("Found A record in storage for Client, returning ip", "domainName", domainName, "ips", aRecord.IPAddresses, "clientIP", clientIP)
+			}
 			for _, ip := range aRecord.IPAddresses {
 				ipSlice = append(ipSlice, net.ParseIP(ip))
 			}
