@@ -53,7 +53,6 @@ func (r *RecordsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// https://sdk.operatorframework.io/docs/building-operators/golang/references/client/#default-client
 	if initReconcile == 0 {
 		r.SetManagerAddress(ctx)
-		go proxy.RenderProxyConfig(managerAddress)
 		r.BackFillRecords(ctx)
 		storage.DNSReady <- true
 		initReconcile = 1
@@ -132,6 +131,9 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 			count := 1
 			for _, x := range records.Spec.A {
 				if x.ForwardType == "proxy" {
+					if storage.ProxyInit == 0 {
+						go proxy.Start(managerAddress)
+					}
 					id = "1"
 				} else {
 					//	Assume Manager Forward type

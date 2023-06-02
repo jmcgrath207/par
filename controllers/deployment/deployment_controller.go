@@ -144,7 +144,6 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 		count := 0
 		podCount := len(podList.Items)
 		if podCount != replicas {
-			time.Sleep(5 * time.Second)
 			continue
 		}
 
@@ -165,7 +164,6 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 		if count == replicas {
 			break
 		}
-		time.Sleep(5 * time.Second)
 	}
 }
 

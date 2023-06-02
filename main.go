@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/jmcgrath207/par/dns"
-	"github.com/jmcgrath207/par/proxy"
 	"github.com/jmcgrath207/par/storage"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -104,7 +103,6 @@ func main() {
 	}
 
 	storage.Start(mgr)
-	go proxy.Start()
 	go dns.Start()
 
 	if err = (&dnscontrollers.RecordsReconciler{

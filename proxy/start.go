@@ -10,6 +10,7 @@ import (
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sync"
 	"text/template"
 	"time"
 )
@@ -17,14 +18,21 @@ import (
 var k8sClient client.Client
 var namespace []byte
 var proxyIP string
+var proxyMutex sync.Mutex
 
-func Start() {
+func Start(managerIP string) {
+	proxyMutex.Lock()
+	if storage.ProxyInit == 1 {
+		return
+	}
 	namespace, _ = os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	// TODO: keeps on requests are cluster level and not namespaced in RBAC rules
-	//k8sClient = clientK8s
 	k8sClient = client.NewNamespacedClient(storage.ClientK8s, string(namespace))
 	GetProxyServiceIP()
-	//TODO need to pass the managerIP address instead.
+	RenderProxyConfig(managerIP)
+	storage.ProxyInit = 1
+	storage.ProxyReady <- true
+	log.FromContext(context.Background()).Info("Proxy Ready")
+	proxyMutex.Unlock()
 }
 
 func setProxyPodsClientId(replicas int) {
@@ -75,7 +83,7 @@ func GetProxyServiceIP() {
 			continue
 		}
 
-		if serviceList.Items == nil {
+		if serviceList.Items == nil || len(serviceList.Items) == 0 {
 			log.FromContext(context.Background()).Info("Waiting for proxy service to be created", "namespace", string(namespace), "label", "par.dev/proxy=true")
 			time.Sleep(5 * time.Second)
 			continue
@@ -179,7 +187,5 @@ func RenderProxyConfig(managerIP string) {
 		setProxyPodsClientId(int(*deployment.Spec.Replicas))
 
 	}
-	storage.ProxyReady <- true
-	log.FromContext(context.Background()).Info("Proxy Ready")
 
 }

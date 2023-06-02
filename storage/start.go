@@ -15,6 +15,7 @@ var (
 	ClientId             = map[string]string{}
 	ProxyReady           chan bool
 	DNSReady             chan bool
+	ProxyInit            int
 )
 
 func Start(mgr ctrl.Manager) {

@@ -35,6 +35,11 @@ func boolPointer(b bool) *bool {
 	return &b
 }
 
+func cleanupResource(object client.Object) {
+	err := k8sClient.Delete(context.Background(), object)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
 func addRecords() *dnsv1alpha1.Records {
 	dnsv1alpha1.AddToScheme(scheme.Scheme)
 	yamlFile, err := os.ReadFile("../resources/test_dns_v1alpha1_records.yaml")
@@ -87,7 +92,7 @@ func GetManagerAddress() string {
 func GetProxyAddress() string {
 	serviceList := &corev1.ServiceList{}
 	opts := []client.ListOption{
-		client.InNamespace(namespace),
+		client.InNamespace("par"),
 		client.MatchingLabels(map[string]string{"par.dev/proxy": "true"}),
 	}
 
@@ -98,7 +103,8 @@ func GetProxyAddress() string {
 	return serviceList.Items[0].Spec.ClusterIP
 
 }
-func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, checkSlice []string) {
+func CheckPodLogsFromDeployment(namespace string, labels map[string]string, checkSlice []string) {
+	// TODO: add timeout param
 	ifFound := make(map[string]bool)
 	var fail int
 	var checkOuput string
@@ -106,7 +112,7 @@ func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, checkSlice []stri
 	podList := corev1.PodList{}
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
-		client.MatchingLabels(deployment.Spec.Template.ObjectMeta.Labels),
+		client.MatchingLabels(labels),
 	}
 	k8sClient.List(context.Background(), &podList, opts...)
 	gomega.Expect(len(podList.Items)).Should(gomega.BeNumerically(">", 0))
@@ -123,7 +129,7 @@ func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, checkSlice []stri
 		}
 		defer podLogs.Close()
 
-		buffer := make([]byte, 512)
+		buffer := make([]byte, 1024)
 		for {
 			bytesRead, err := podLogs.Read(buffer)
 			if err != nil {
@@ -169,49 +175,45 @@ func CheckPodLogsFromDeployment(deployment *appsv1.Deployment, checkSlice []stri
 // remove a Arecord entry and make sure it's evicted from DNS cache - working
 var _ = ginkgo.Describe("Test Deployments\n", func() {
 
-	ginkgo.Context("Arecord:\nFoward", func() {
+	ginkgo.Context("A Record: wget with PROXY\n", func() {
+		createDeployment("../resources/test_wget_a_record_deployment.yaml")
+		time.Sleep(120 * time.Second)
+		ginkgo.Specify("\nReturn A Record IP addresses and Proxy IP address", func() {
+			var checkSlice []string
+			checkSlice = append(checkSlice, "google.com", GetProxyAddress(), "Found A record in storage for Proxy",
+				records.Spec.A[0].IPAddresses[0], records.Spec.A[0].IPAddresses[1])
+			CheckPodLogsFromDeployment("par", map[string]string{"par.dev/manager": "true"}, checkSlice)
+		})
+	})
+
+	ginkgo.Context("No Record: wget from PROXY\n", func() {
+		createDeployment("../resources/test_wget_no_record_deployment.yaml")
+		time.Sleep(120 * time.Second)
+		ginkgo.Specify("\nReturn A Record Upstream IP addresses and Proxy IP address", func() {
+			var checkSlice []string
+			checkSlice = append(checkSlice, "yahoo.com", "Found A record in storage for Proxy", GetProxyAddress())
+			CheckPodLogsFromDeployment("par", map[string]string{"par.dev/manager": "true"}, checkSlice)
+		})
+	})
+
+	ginkgo.Context("A Record: Lookup from Manager", func() {
 		deployment := createDeployment("../resources/test_a_record_deployment.yaml")
-		// TODO: check logs on manager if deployment is ready
 		time.Sleep(10 * time.Second)
-		ginkgo.Specify("Does return a Proxy IP address upon DNS lookup from Par Manager Address\n", func() {
+		ginkgo.Specify("\nReturn A Record IP addresses and Manager IP address", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "google.com",
 				records.Spec.A[1].IPAddresses[0], records.Spec.A[1].IPAddresses[1])
-			CheckPodLogsFromDeployment(deployment, checkSlice)
+			CheckPodLogsFromDeployment(namespace, deployment.Spec.Template.ObjectMeta.Labels, checkSlice)
 		})
 	})
 
-	ginkgo.Context("queries a domain that is IN ARecord with PROXY\n", func() {
-		deployment := createDeployment("../resources/test_wget_a_record_deployment.yaml")
-		// TODO: check logs on manager if deployment is ready
-		time.Sleep(10 * time.Second)
-		ginkgo.Specify("Does return a Proxy IP address upon DNS lookup from Par Manager Address\n", func() {
-			var checkSlice []string
-			// TODO: how to get the cluster dns address and add it to the checkSlice
-			checkSlice = append(checkSlice, "google.com", GetProxyAddress())
-			CheckPodLogsFromDeployment(deployment, checkSlice)
-		})
-	})
-
-	ginkgo.Context("Test Deployment that queries a domain NOT IN ARecord with PROXY\n", func() {
-		deployment := createDeployment("../resources/test_wget_no_record_deployment.yaml")
-		// TODO: check logs on manager if deployment is ready
-		time.Sleep(10 * time.Second)
-		ginkgo.Specify("Does not return a Proxy IP address upon DNS lookup from Par Manager Address, only Upstream DNS\n", func() {
-			var checkSlice []string
-			checkSlice = append(checkSlice, "yahoo.com")
-			CheckPodLogsFromDeployment(deployment, checkSlice)
-		})
-	})
-
-	ginkgo.Context("Test Deployment that queries a domain NOT IN ARecord\n", func() {
+	ginkgo.Context("No Record: lookup from Manager\n", func() {
 		deployment := createDeployment("../resources/test_no_record_deployment.yaml")
-		// TODO: check logs on manager if deployment is ready
 		time.Sleep(10 * time.Second)
-		ginkgo.Specify("Does not return a Proxy IP address upon DNS lookup from Par Manager Address, only Upstream DNS\n", func() {
+		ginkgo.Specify("\nReturn IP addresses from Upstream DNS and Manager IP address\n", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "yahoo.com", GetManagerAddress())
-			CheckPodLogsFromDeployment(deployment, checkSlice)
+			CheckPodLogsFromDeployment(namespace, deployment.Spec.Template.ObjectMeta.Labels, checkSlice)
 		})
 	})
 })
