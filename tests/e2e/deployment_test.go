@@ -128,7 +128,6 @@ func ReadPodLogs(ifFound map[string]bool, checkOutput string, checkSlice []strin
 		}
 		podLogs, err := req.Stream(context.Background())
 		if err != nil {
-			podLogs.Close()
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -204,11 +203,10 @@ func CheckPodLogsFromDeployment(namespace string, labels map[string]string, chec
 				continue
 			}
 			ginkgo.GinkgoWriter.Printf("Did not find value: [ %v ] in pod logs\n", key)
-			//ginkgo.GinkgoWriter.Printf("Pod logs output: \n %v", checkOutput)
+			ginkgo.GinkgoWriter.Printf("Pod logs output: \n %v", checkOutput)
 			fail = 1
 		}
 		gomega.Expect(fail).Should(gomega.Equal(0))
-
 	}
 }
 
