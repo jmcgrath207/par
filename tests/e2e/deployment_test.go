@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	restclient "k8s.io/client-go/rest"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -22,9 +23,6 @@ import (
 // REF: https://github.com/superorbital/random-number-controller
 
 var (
-	timeout   = time.Second * 10
-	duration  = time.Second * 10
-	interval  = time.Millisecond * 250
 	clientset *kubernetes.Clientset
 	k8sClient client.Client
 	namespace = "default"
@@ -33,11 +31,6 @@ var (
 
 func boolPointer(b bool) *bool {
 	return &b
-}
-
-func cleanupResource(object client.Object) {
-	err := k8sClient.Delete(context.Background(), object)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
 func addRecords() *dnsv1alpha1.Records {
@@ -103,70 +96,120 @@ func GetProxyAddress() string {
 	return serviceList.Items[0].Spec.ClusterIP
 
 }
+
+func CheckValues(ifFound map[string]bool, status int) int {
+	for _, value := range ifFound {
+		if value {
+			status = 1
+		} else {
+			status = 0
+			break
+		}
+	}
+	return status
+}
+
+func ReadPodLogs(ifFound map[string]bool, checkOutput string, checkSlice []string, req *restclient.Request) (map[string]bool, string) {
+
+	timeout := time.Second * 120
+	startTime := time.Now()
+
+	// Add values to IFound Map
+	for _, a := range checkSlice {
+		ifFound[a] = false
+	}
+
+	for {
+		status := 0
+		elapsed := time.Since(startTime)
+		if elapsed >= timeout {
+			ginkgo.GinkgoWriter.Printf("Read logs timeout occurred\n")
+			break
+		}
+		podLogs, err := req.Stream(context.Background())
+		if err != nil {
+			podLogs.Close()
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		buffer := make([]byte, 1000000)
+		bytesRead, err := podLogs.Read(buffer)
+		podLogs.Close()
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		output := string(buffer[:bytesRead])
+		checkOutput = checkOutput + output
+		for _, a := range checkSlice {
+			if ifFound[a] {
+				continue
+			}
+			if strings.Contains(output, a) {
+				ifFound[a] = true
+				status = CheckValues(ifFound, status)
+				if status == 1 {
+					break
+				}
+				continue
+			}
+		}
+
+		if status == 1 {
+			break
+		}
+	}
+
+	return ifFound, checkOutput
+}
+
 func CheckPodLogsFromDeployment(namespace string, labels map[string]string, checkSlice []string) {
-	// TODO: add timeout param
 	ifFound := make(map[string]bool)
 	var fail int
-	var checkOuput string
+	var checkOutput string
 
 	podList := corev1.PodList{}
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(labels),
 	}
-	k8sClient.List(context.Background(), &podList, opts...)
-	gomega.Expect(len(podList.Items)).Should(gomega.BeNumerically(">", 0))
+	for {
+		ready := 0
+		k8sClient.List(context.Background(), &podList, opts...)
+		for _, pod := range podList.Items {
+			if pod.Status.Phase != "Running" {
+				ready = 1
+				time.Sleep(1 * time.Second)
+				break
+			}
+		}
+		if len(podList.Items) != 1 {
+			continue
+		}
+		if ready == 0 {
+			break
+		}
+	}
 
 	for _, pod := range podList.Items {
 		req := clientset.CoreV1().Pods(pod.ObjectMeta.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
 			Container: pod.Spec.Containers[0].Name,
 		})
 
-		podLogs, err := req.Stream(context.Background())
-		if err != nil {
-			ginkgo.GinkgoWriter.Printf("Pod name: \n %v", pod.Name)
-			ginkgo.Fail("Unable to get pod logs")
-		}
-		defer podLogs.Close()
+		ifFound, checkOutput = ReadPodLogs(ifFound, checkOutput, checkSlice, req)
 
-		buffer := make([]byte, 1024)
-		for {
-			bytesRead, err := podLogs.Read(buffer)
-			if err != nil {
-				break
-			}
-			if bytesRead > 0 {
-				output := string(buffer[:bytesRead])
-				checkOuput = checkOuput + output
-				//ginkgo.GinkgoWriter.Printf("checkSlice %v \n", checkSlice)
-				for _, a := range checkSlice {
-					if ifFound[a] {
-						continue
-					}
-					if strings.Contains(output, a) {
-						ifFound[a] = true
-						//ginkgo.GinkgoWriter.Printf("Found it %v \n", a)
-						continue
-					} else {
-						ifFound[a] = false
-					}
-				}
+		for key, value := range ifFound {
+			if value {
+				ginkgo.GinkgoWriter.Printf("Found value: [ %v ] in pod logs\n", key)
 				continue
 			}
+			ginkgo.GinkgoWriter.Printf("Did not find value: [ %v ] in pod logs\n", key)
+			//ginkgo.GinkgoWriter.Printf("Pod logs output: \n %v", checkOutput)
+			fail = 1
 		}
-	}
+		gomega.Expect(fail).Should(gomega.Equal(0))
 
-	for key, value := range ifFound {
-		if value {
-			ginkgo.GinkgoWriter.Printf("Found value %v in pod logs\n", key)
-			continue
-		}
-		ginkgo.GinkgoWriter.Printf("Did not find value %v in pod logs\n", key)
-		ginkgo.GinkgoWriter.Printf("Pod logs output: \n %v", checkOuput)
-		fail = 1
 	}
-	gomega.Expect(fail).Should(gomega.Equal(0))
-
 }
 
 // TODO: add test following test
@@ -177,7 +220,6 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 
 	ginkgo.Context("A Record: wget with PROXY\n", func() {
 		createDeployment("../resources/test_wget_a_record_deployment.yaml")
-		time.Sleep(120 * time.Second)
 		ginkgo.Specify("\nReturn A Record IP addresses and Proxy IP address", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "google.com", GetProxyAddress(), "Found A record in storage for Proxy",
@@ -188,7 +230,6 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 
 	ginkgo.Context("No Record: wget from PROXY\n", func() {
 		createDeployment("../resources/test_wget_no_record_deployment.yaml")
-		time.Sleep(120 * time.Second)
 		ginkgo.Specify("\nReturn A Record Upstream IP addresses and Proxy IP address", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "yahoo.com", "Found A record in storage for Proxy", GetProxyAddress())
@@ -198,18 +239,16 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 
 	ginkgo.Context("A Record: Lookup from Manager", func() {
 		deployment := createDeployment("../resources/test_a_record_deployment.yaml")
-		time.Sleep(10 * time.Second)
 		ginkgo.Specify("\nReturn A Record IP addresses and Manager IP address", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "google.com",
-				records.Spec.A[1].IPAddresses[0], records.Spec.A[1].IPAddresses[1])
+				records.Spec.A[1].IPAddresses[0], records.Spec.A[1].IPAddresses[1], GetManagerAddress())
 			CheckPodLogsFromDeployment(namespace, deployment.Spec.Template.ObjectMeta.Labels, checkSlice)
 		})
 	})
 
 	ginkgo.Context("No Record: lookup from Manager\n", func() {
 		deployment := createDeployment("../resources/test_no_record_deployment.yaml")
-		time.Sleep(10 * time.Second)
 		ginkgo.Specify("\nReturn IP addresses from Upstream DNS and Manager IP address\n", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "yahoo.com", GetManagerAddress())
