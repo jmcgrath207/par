@@ -18,6 +18,7 @@ COPY controllers/ controllers/
 COPY dns/  dns/
 COPY storage/  storage/
 COPY proxy/  proxy/
+COPY metrics/ metrics/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command

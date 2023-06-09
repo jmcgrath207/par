@@ -1,11 +1,13 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"io"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -128,17 +130,12 @@ func ReadPodLogs(ifFound map[string]bool, checkOutput string, checkSlice []strin
 		}
 		podLogs, err := req.Stream(context.Background())
 		if err != nil {
-			time.Sleep(5 * time.Second)
 			continue
 		}
-		buffer := make([]byte, 1000000)
-		bytesRead, err := podLogs.Read(buffer)
+		buffer := new(bytes.Buffer)
+		io.Copy(buffer, podLogs)
 		podLogs.Close()
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		output := string(buffer[:bytesRead])
+		output := buffer.String()
 		checkOutput = checkOutput + output
 		for _, a := range checkSlice {
 			if ifFound[a] {
@@ -172,6 +169,10 @@ func CheckPodLogsFromDeployment(namespace string, labels map[string]string, chec
 		client.InNamespace(namespace),
 		client.MatchingLabels(labels),
 	}
+
+	// Wait until deployment redeploy pod.
+	timeout := time.Second * 10
+	startTime := time.Now()
 	for {
 		ready := 0
 		k8sClient.List(context.Background(), &podList, opts...)
@@ -183,11 +184,15 @@ func CheckPodLogsFromDeployment(namespace string, labels map[string]string, chec
 			}
 		}
 		if len(podList.Items) != 1 {
+			time.Sleep(1 * time.Second)
 			continue
 		}
-		if ready == 0 {
+
+		elapsed := time.Since(startTime)
+		if elapsed >= timeout && ready == 0 {
 			break
 		}
+		time.Sleep(1 * time.Second)
 	}
 
 	for _, pod := range podList.Items {
@@ -199,11 +204,11 @@ func CheckPodLogsFromDeployment(namespace string, labels map[string]string, chec
 
 		for key, value := range ifFound {
 			if value {
-				ginkgo.GinkgoWriter.Printf("Found value: [ %v ] in pod logs\n", key)
+				ginkgo.GinkgoWriter.Printf("\nFound value: [ %v ] in pod logs", key)
 				continue
 			}
-			ginkgo.GinkgoWriter.Printf("Did not find value: [ %v ] in pod logs\n", key)
-			ginkgo.GinkgoWriter.Printf("Pod logs output: \n %v", checkOutput)
+			ginkgo.GinkgoWriter.Printf("\nDid not find value: [ %v ] in pod logs\n", key)
+			ginkgo.GinkgoWriter.Printf("\nPod logs output: \n %v", checkOutput)
 			fail = 1
 		}
 		gomega.Expect(fail).Should(gomega.Equal(0))
@@ -257,7 +262,6 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 
 func TestDeployments(t *testing.T) {
 	// https://onsi.github.io/ginkgo/#ginkgo-and-gomega-patterns
-	time.Sleep(20 * time.Second)
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	//set up a client
 	env := envtest.Environment{

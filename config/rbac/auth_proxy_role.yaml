@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/component: kube-rbac-proxy
     app.kubernetes.io/created-by: par
     app.kubernetes.io/part-of: par
-    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/managed-by: par-helm
   name: proxy-role
 rules:
 - apiGroups:

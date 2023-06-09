@@ -49,6 +49,8 @@ function main() {
   elif [[ $ENV == "e2e" ]]; then
 #    ( sleep 10 ; printf "\n\n" && while :; do kubectl logs -n par -l par.dev/manager="true" -f || sleep 5; done) &
     ${LOCALBIN}/setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir ${LOCALBIN} -p path
+    kubectl port-forward -n par -n par -l par.dev/manager="true"  8080:8080
+
     ${LOCALBIN}/ginkgo -v -r --race --randomize-all --randomize-suites  ./tests/e2e/...
   elif [[ $ENV == "e2e-debug" ]]; then
     ${LOCALBIN}/setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir ${LOCALBIN} -p path

@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
+	"github.com/jmcgrath207/par/metrics"
 	"github.com/jmcgrath207/par/storage"
 	"github.com/miekg/dns"
 	"net"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 )
 
 func Start() {
@@ -25,6 +27,7 @@ func Start() {
 }
 
 func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
+	var ips []net.IP
 	m := new(dns.Msg)
 	m.SetReply(r)
 	if len(r.Question) == 0 {
@@ -39,7 +42,7 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 	q := r.Question[0]
 	if q.Qtype == dns.TypeA {
-		ips, err := lookupIP(q.Name, clientIP)
+		ips, err := lookupIP(q.Name, clientIP.String())
 		if err == nil {
 			for _, ip := range ips {
 				if ip.To4() == nil {
@@ -63,33 +66,35 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	if err != nil {
 		panic(err)
 	}
+	// TODO: Report Slice not working
+	reportSlice := []string{}
+	for _, ip := range ips {
+		reportSlice = append(reportSlice, ip.String())
+	}
+	metrics.DNSQueryCount.WithLabelValues(
+		q.Name,
+		strings.Join(reportSlice, " "),
+		clientIP.String()).Inc()
 	return
 }
 
-func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
-	var ipSlice []net.IP
+func lookupIP(domainName string, clientIP string) ([]net.IP, error) {
+	var ips []net.IP
 
 	// force traffic to go through proxy by return proxy address
-	proxyIP, ok := storage.ToProxySourceHostMap[clientIP.String()]
+	proxyIP, ok := storage.ToProxySourceHostMap[clientIP]
 	if ok {
-		log.FromContext(context.Background()).Info("Found client IP in storage, returning proxy IP",
-			"domainName", domainName, "ips", proxyIP.String(), "clientIP", clientIP)
-		return append(ipSlice, proxyIP), nil
+		return append(ips, proxyIP), nil
 	}
-	id, okId := storage.ClientId[clientIP.String()]
+	id, okId := storage.ClientId[clientIP]
 	if okId {
 		val, okRecord := storage.GetRecord("A", domainName+id)
 		if okRecord {
 			aRecord := val.(dnsv1alpha1.ARecordsSpec)
-			if id == "1" {
-				log.FromContext(context.Background()).Info("Found A record in storage for Proxy, returning ip", "domainName", domainName, "ips", aRecord.IPAddresses, "clientIP", clientIP)
-			} else {
-				log.FromContext(context.Background()).Info("Found A record in storage for Client, returning ip", "domainName", domainName, "ips", aRecord.IPAddresses, "clientIP", clientIP)
-			}
 			for _, ip := range aRecord.IPAddresses {
-				ipSlice = append(ipSlice, net.ParseIP(ip))
+				ips = append(ips, net.ParseIP(ip))
 			}
-			return ipSlice, nil
+			return ips, nil
 		}
 
 	}
@@ -98,7 +103,6 @@ func lookupIP(domainName string, clientIP net.IP) ([]net.IP, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.FromContext(context.Background()).Info("Return A record in found in Cluster DNS, returning ip", "domainName", domainName, "ips", ips, "clientIP", clientIP)
 
 	return ips, nil
 }

@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "chart.fullname" . }}-controller-manager-metrics-monitor
+  labels:
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  podMetricsEndpoints:
+  - path: /metrics
+    port: metrics
+    scheme: http
+  selector:
+    matchLabels:
+      control-plane: controller-manager
