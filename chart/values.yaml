@@ -19,3 +19,10 @@ parManager:
     protocol: UDP
     targetPort: dns
   type: ClusterIP
+parManagerMetrics:
+  ports:
+  - name: metrics
+    port: 8080
+    protocol: TCP
+    targetPort: metrics
+  type: ClusterIP

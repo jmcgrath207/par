@@ -10,7 +10,9 @@ function trap_func() {
 	kubectl delete -f tests/resources/test_wget_a_record_deployment.yaml --ignore-not-found
 	kubectl delete -f tests/resources/test_wget_no_record_deployment.yaml --ignore-not-found
 	kubectl delete -f tests/resources/debug_service.yaml --ignore-not-found
-	kill $(jobs -p)
+	jobs -p | xargs kill -SIGSTOP
+	jobs -p | xargs kill -9
+	sudo ss -aK '( dport = :8080 or sport = :8080 )'
 	} &> /dev/null
 }
 

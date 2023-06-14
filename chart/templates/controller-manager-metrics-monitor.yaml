@@ -1,14 +1,21 @@
 apiVersion: monitoring.coreos.com/v1
-kind: PodMonitor
+kind: ServiceMonitor
 metadata:
   name: {{ include "chart.fullname" . }}-controller-manager-metrics-monitor
   labels:
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/created-by: par
+    app.kubernetes.io/part-of: par
+    control-plane: controller-manager
   {{- include "chart.labels" . | nindent 4 }}
 spec:
-  podMetricsEndpoints:
+  endpoints:
   - path: /metrics
     port: metrics
     scheme: http
+  namespaceSelector:
+    matchNames:
+    - system
   selector:
     matchLabels:
       control-plane: controller-manager

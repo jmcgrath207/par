@@ -71,6 +71,7 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	for _, ip := range ips {
 		reportSlice = append(reportSlice, ip.String())
 	}
+	// TODO: metrics dns_query_count not showing.
 	metrics.DNSQueryCount.WithLabelValues(
 		q.Name,
 		strings.Join(reportSlice, " "),

@@ -62,7 +62,7 @@ spec:
               containerPort: 80
               protocol: TCP
             - name: metrics
-              containerPort: 9443
+              containerPort: 8080
               protocol: TCP
             - name: dns
               containerPort: 9000

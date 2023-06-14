@@ -4,6 +4,7 @@ metadata:
   name: par-manager
   labels:
     par.dev/manager: "true"
+    app.kubernetes.io/managed-by: par-helm
 spec:
   selector:
     par.dev/manager: "true"

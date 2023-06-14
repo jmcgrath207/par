@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: par-manager-metrics
+  labels:
+    par.dev/manager: "true"
+spec:
+  selector:
+    par.dev/manager: "true"
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: 8080
+      targetPort: metrics

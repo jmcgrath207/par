@@ -1,23 +1,26 @@
 
 # Prometheus Monitor Service (Metrics)
 apiVersion: monitoring.coreos.com/v1
-kind: PodMonitor
+kind: ServiceMonitor
 metadata:
   labels:
     control-plane: controller-manager
-    app.kubernetes.io/name: podmonitor
+    app.kubernetes.io/name: service-monitor
     app.kubernetes.io/instance: controller-manager-metrics-monitor
     app.kubernetes.io/component: metrics
     app.kubernetes.io/created-by: par
     app.kubernetes.io/part-of: par
-    app.kubernetes.io/managed-by:
+    app.kubernetes.io/managed-by: par-helm
   name: controller-manager-metrics-monitor
   namespace: system
 spec:
-  podMetricsEndpoints:
+  endpoints:
     - path: /metrics
       port: metrics
       scheme: http
+  namespaceSelector:
+    matchNames:
+      - system
   selector:
     matchLabels:
       control-plane: controller-manager
