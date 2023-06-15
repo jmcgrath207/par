@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	promMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var DNSQueryCount *prometheus.CounterVec
@@ -20,5 +20,5 @@ func Start() {
 		},
 	)
 
-	metrics.Registry.MustRegister(DNSQueryCount)
+	promMetrics.Registry.MustRegister(DNSQueryCount)
 }

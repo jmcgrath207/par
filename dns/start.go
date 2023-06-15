@@ -28,6 +28,8 @@ func Start() {
 
 func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	var ips []net.IP
+	var err error
+
 	m := new(dns.Msg)
 	m.SetReply(r)
 	if len(r.Question) == 0 {
@@ -42,7 +44,7 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 	q := r.Question[0]
 	if q.Qtype == dns.TypeA {
-		ips, err := lookupIP(q.Name, clientIP.String())
+		ips, err = lookupIP(q.Name, clientIP.String())
 		if err == nil {
 			for _, ip := range ips {
 				if ip.To4() == nil {
@@ -62,7 +64,7 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	}
 	m.SetRcode(r, dns.RcodeSuccess)
-	err := w.WriteMsg(m)
+	err = w.WriteMsg(m)
 	if err != nil {
 		panic(err)
 	}
