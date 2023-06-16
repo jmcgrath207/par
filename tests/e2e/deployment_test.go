@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
@@ -12,7 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	restclient "k8s.io/client-go/rest"
+	"net/http"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -35,7 +34,7 @@ func boolPointer(b bool) *bool {
 	return &b
 }
 
-func addRecords() *dnsv1alpha1.Records {
+func addRecords() {
 	dnsv1alpha1.AddToScheme(scheme.Scheme)
 	yamlFile, err := os.ReadFile("../resources/test_dns_v1alpha1_records.yaml")
 	if err != nil {
@@ -44,14 +43,13 @@ func addRecords() *dnsv1alpha1.Records {
 	}
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 
-	records := &dnsv1alpha1.Records{}
+	records = &dnsv1alpha1.Records{}
 	_, _, err = decode(yamlFile, nil, records)
 	if err != nil {
 		fmt.Printf("%#v", err)
 	}
 	err = k8sClient.Create(context.Background(), records)
 	gomega.Expect(err).Should(gomega.Succeed())
-	return records
 }
 
 func createDeployment(deploymentPath string) *appsv1.Deployment {
@@ -99,7 +97,8 @@ func GetProxyAddress() string {
 
 }
 
-func CheckValues(ifFound map[string]bool, status int) int {
+func CheckValues(ifFound map[string]bool) int {
+	var status int
 	for _, value := range ifFound {
 		if value {
 			status = 1
@@ -111,108 +110,77 @@ func CheckValues(ifFound map[string]bool, status int) int {
 	return status
 }
 
-func ReadPodLogs(ifFound map[string]bool, checkOutput string, checkSlice []string, req *restclient.Request) (map[string]bool, string) {
-
+func checkPrometheus(checkSlice []string) {
+	var status int
 	timeout := time.Second * 120
 	startTime := time.Now()
+	ifFound := make(map[string]bool)
 
 	// Add values to IFound Map
 	for _, a := range checkSlice {
 		ifFound[a] = false
 	}
+	httpClient := &http.Client{}
 
 	for {
-		status := 0
 		elapsed := time.Since(startTime)
 		if elapsed >= timeout {
-			ginkgo.GinkgoWriter.Printf("Read logs timeout occurred\n")
 			break
 		}
-		podLogs, err := req.Stream(context.Background())
+		status = 0
+		time.Sleep(1 * time.Second)
+
+		// Create a new GET request
+		req, err := http.NewRequest("GET", "http://127.0.0.1:8080/metrics", nil)
 		if err != nil {
 			continue
 		}
-		buffer := new(bytes.Buffer)
-		io.Copy(buffer, podLogs)
-		podLogs.Close()
-		output := buffer.String()
-		checkOutput = checkOutput + output
+
+		// Send the request
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			continue
+		}
+
+		// Read the response body
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			continue
+		}
+		output := string(body)
+		resp.Body.Close()
+
+		// Print the response
 		for _, a := range checkSlice {
 			if ifFound[a] {
 				continue
 			}
+			//TODO: Values are not being found in prom exporter output
 			if strings.Contains(output, a) {
 				ifFound[a] = true
-				status = CheckValues(ifFound, status)
-				if status == 1 {
+				status = CheckValues(ifFound)
+				if status == 0 {
 					break
 				}
-				continue
 			}
+			status = 1
 		}
 
-		if status == 1 {
+		if status == 0 {
 			break
 		}
+
 	}
-
-	return ifFound, checkOutput
-}
-
-func CheckPodLogsFromDeployment(namespace string, labels map[string]string, checkSlice []string) {
-	ifFound := make(map[string]bool)
-	var fail int
-	var checkOutput string
-
-	podList := corev1.PodList{}
-	opts := []client.ListOption{
-		client.InNamespace(namespace),
-		client.MatchingLabels(labels),
-	}
-
-	// Wait until deployment redeploy pod.
-	timeout := time.Second * 10
-	startTime := time.Now()
-	for {
-		ready := 0
-		k8sClient.List(context.Background(), &podList, opts...)
-		for _, pod := range podList.Items {
-			if pod.Status.Phase != "Running" {
-				ready = 1
-				time.Sleep(1 * time.Second)
-				break
-			}
-		}
-		if len(podList.Items) != 1 {
-			time.Sleep(1 * time.Second)
+	for key, value := range ifFound {
+		if value {
+			ginkgo.GinkgoWriter.Printf("\nFound value: [ %v ] in prometheus exporter\n", key)
 			continue
 		}
-
-		elapsed := time.Since(startTime)
-		if elapsed >= timeout && ready == 0 {
-			break
-		}
-		time.Sleep(1 * time.Second)
+		ginkgo.GinkgoWriter.Printf("\nDid not find value: [ %v ] in prometheus exporter\n", key)
 	}
 
-	for _, pod := range podList.Items {
-		req := clientset.CoreV1().Pods(pod.ObjectMeta.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
-			Container: pod.Spec.Containers[0].Name,
-		})
+	gomega.Expect(status).Should(gomega.Equal(0))
 
-		ifFound, checkOutput = ReadPodLogs(ifFound, checkOutput, checkSlice, req)
-
-		for key, value := range ifFound {
-			if value {
-				ginkgo.GinkgoWriter.Printf("\nFound value: [ %v ] in pod logs", key)
-				continue
-			}
-			ginkgo.GinkgoWriter.Printf("\nDid not find value: [ %v ] in pod logs\n", key)
-			ginkgo.GinkgoWriter.Printf("\nPod logs output: \n %v", checkOutput)
-			fail = 1
-		}
-		gomega.Expect(fail).Should(gomega.Equal(0))
-	}
 }
 
 // TODO: add test following test
@@ -225,9 +193,9 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 		createDeployment("../resources/test_wget_a_record_deployment.yaml")
 		ginkgo.Specify("\nReturn A Record IP addresses and Proxy IP address", func() {
 			var checkSlice []string
-			checkSlice = append(checkSlice, "google.com", GetProxyAddress(), "Found A record in storage for Proxy",
+			checkSlice = append(checkSlice, "google.com", GetProxyAddress(),
 				records.Spec.A[0].IPAddresses[0], records.Spec.A[0].IPAddresses[1])
-			CheckPodLogsFromDeployment("par", map[string]string{"par.dev/manager": "true"}, checkSlice)
+			checkPrometheus(checkSlice)
 		})
 	})
 
@@ -235,27 +203,27 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 		createDeployment("../resources/test_wget_no_record_deployment.yaml")
 		ginkgo.Specify("\nReturn A Record Upstream IP addresses and Proxy IP address", func() {
 			var checkSlice []string
-			checkSlice = append(checkSlice, "yahoo.com", "Found A record in storage for Proxy", GetProxyAddress())
-			CheckPodLogsFromDeployment("par", map[string]string{"par.dev/manager": "true"}, checkSlice)
+			checkSlice = append(checkSlice, "yahoo.com", GetProxyAddress())
+			checkPrometheus(checkSlice)
 		})
 	})
 
 	ginkgo.Context("A Record: Lookup from Manager", func() {
-		deployment := createDeployment("../resources/test_a_record_deployment.yaml")
+		createDeployment("../resources/test_a_record_deployment.yaml")
 		ginkgo.Specify("\nReturn A Record IP addresses and Manager IP address", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "google.com",
 				records.Spec.A[1].IPAddresses[0], records.Spec.A[1].IPAddresses[1], GetManagerAddress())
-			CheckPodLogsFromDeployment(namespace, deployment.Spec.Template.ObjectMeta.Labels, checkSlice)
+			checkPrometheus(checkSlice)
 		})
 	})
 
 	ginkgo.Context("No Record: lookup from Manager\n", func() {
-		deployment := createDeployment("../resources/test_no_record_deployment.yaml")
+		createDeployment("../resources/test_no_record_deployment.yaml")
 		ginkgo.Specify("\nReturn IP addresses from Upstream DNS and Manager IP address\n", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "yahoo.com", GetManagerAddress())
-			CheckPodLogsFromDeployment(namespace, deployment.Spec.Template.ObjectMeta.Labels, checkSlice)
+			checkPrometheus(checkSlice)
 		})
 	})
 })
@@ -270,7 +238,7 @@ func TestDeployments(t *testing.T) {
 	config, err := env.Start()
 	clientset, err = kubernetes.NewForConfig(config)
 	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
-	records = addRecords()
+	addRecords()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	ginkgo.RunSpecs(t, "Test Deployments")
 }
