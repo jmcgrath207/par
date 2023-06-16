@@ -156,9 +156,7 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 			}
 			if w.fowardType == "proxy" {
 				log.FromContext(context.Background()).Info("Setting DNS Server to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", storage.ProxyAddress)
-				// TODO: Seems to be block after second hit, maybe it's because the channel is exhausted.
-				// Might have to switch to lock or var
-				<-storage.ProxyReady
+				storage.ProxyWaitGroup.Wait()
 				storage.ToProxySourceHostMap[pod.Status.PodIP] = net.ParseIP(storage.ProxyAddress)
 			}
 			count = count + 1

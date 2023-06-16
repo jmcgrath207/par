@@ -30,7 +30,7 @@ func Start(managerIP string) {
 	GetProxyServiceIP()
 	RenderProxyConfig(managerIP)
 	storage.ProxyInit = 1
-	storage.ProxyReady <- true
+	storage.ProxyWaitGroup.Done()
 	log.FromContext(context.Background()).Info("Proxy Ready")
 	proxyMutex.Unlock()
 }

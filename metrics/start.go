@@ -10,10 +10,11 @@ var DNSQueryCount *prometheus.CounterVec
 func Start() {
 	DNSQueryCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "dns_query_count",
+			Name: "dns_queries",
 			Help: "Returns the number of DNS queries made to the DNS server",
 		},
 		[]string{
+			"type",
 			"domainName",
 			"ips",
 			"clientIP",

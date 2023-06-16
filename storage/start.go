@@ -4,6 +4,7 @@ import (
 	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sync"
 )
 
 var (
@@ -13,7 +14,7 @@ var (
 	Mgr                  ctrl.Manager
 	ProxyAddress         string
 	ClientId             = map[string]string{}
-	ProxyReady           chan bool
+	ProxyWaitGroup       sync.WaitGroup
 	DNSReady             chan bool
 	ProxyInit            int
 )
@@ -21,7 +22,7 @@ var (
 func Start(mgr ctrl.Manager) {
 	recordMap = make(map[string]map[string]interface{})
 	ClientK8s = mgr.GetClient()
-	ProxyReady = make(chan bool)
+	ProxyWaitGroup.Add(1)
 	DNSReady = make(chan bool)
 	Mgr = mgr
 }

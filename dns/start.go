@@ -29,6 +29,7 @@ func Start() {
 func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	var ips []net.IP
 	var err error
+	var queryType string
 
 	m := new(dns.Msg)
 	m.SetReply(r)
@@ -44,6 +45,7 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 
 	q := r.Question[0]
 	if q.Qtype == dns.TypeA {
+		queryType = "A"
 		ips, err = lookupIP(q.Name, clientIP.String())
 		if err == nil {
 			for _, ip := range ips {
@@ -75,6 +77,7 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	}
 	// TODO: metrics dns_query_count not showing.
 	metrics.DNSQueryCount.WithLabelValues(
+		queryType,
 		q.Name,
 		strings.Join(reportSlice, " "),
 		clientIP.String()).Inc()
