@@ -17,7 +17,7 @@ func Start() {
 	server := &dns.Server{Addr: ":9000", Net: "udp"}
 	log.FromContext(context.Background()).Info("Starting DNS server", "port", "9000")
 	server.Handler = dns.HandlerFunc(handleDNSRequest)
-	<-storage.DNSReady
+	storage.DNSWaitGroup.Wait()
 	err := server.ListenAndServe()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start server: %s\n", err.Error())
@@ -70,17 +70,18 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 	if err != nil {
 		panic(err)
 	}
-	// TODO: Report Slice not working
-	reportSlice := []string{}
-	for _, ip := range ips {
-		reportSlice = append(reportSlice, ip.String())
+	if queryType != "" {
+		reportSlice := []string{}
+		for _, ip := range ips {
+			reportSlice = append(reportSlice, ip.String())
+		}
+		metrics.DNSQueryCount.WithLabelValues(
+			queryType,
+			q.Name,
+			strings.Join(reportSlice, " "),
+			clientIP.String()).Inc()
+
 	}
-	// TODO: metrics dns_query_count not showing.
-	metrics.DNSQueryCount.WithLabelValues(
-		queryType,
-		q.Name,
-		strings.Join(reportSlice, " "),
-		clientIP.String()).Inc()
 	return
 }
 

@@ -40,6 +40,8 @@ function main() {
 
   helm install nginx oci://registry-1.docker.io/bitnamicharts/nginx -f tests/resources/test_proxy.yaml -n par
 
+  # kill dangling port forwards if found.
+  sudo ss -aK '( dport = :8080 or sport = :8080 )' | true
 
   if [[ $ENV == "debug" ]]; then
   # Background log following for manager

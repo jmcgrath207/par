@@ -15,7 +15,7 @@ var (
 	ProxyAddress         string
 	ClientId             = map[string]string{}
 	ProxyWaitGroup       sync.WaitGroup
-	DNSReady             chan bool
+	DNSWaitGroup         sync.WaitGroup
 	ProxyInit            int
 )
 
@@ -23,7 +23,7 @@ func Start(mgr ctrl.Manager) {
 	recordMap = make(map[string]map[string]interface{})
 	ClientK8s = mgr.GetClient()
 	ProxyWaitGroup.Add(1)
-	DNSReady = make(chan bool)
+	DNSWaitGroup.Add(1)
 	Mgr = mgr
 }
 

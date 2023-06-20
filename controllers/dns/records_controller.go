@@ -54,12 +54,13 @@ func (r *RecordsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if initReconcile == 0 {
 		r.SetManagerAddress(ctx)
 		r.BackFillRecords(ctx)
-		storage.DNSReady <- true
+		storage.DNSWaitGroup.Done()
 		initReconcile = 1
 		return ctrl.Result{}, nil
 	}
 	var records dnsv1alpha1.Records
 
+	// For New Records Types
 	if err := r.Get(ctx, req.NamespacedName, &records); err != nil {
 		// Handle error if the MyResource object cannot be fetched
 		if errors.IsNotFound(err) {
