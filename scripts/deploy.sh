@@ -41,29 +41,28 @@ function main() {
 
   # kill dangling port forwards if found.
   sudo ss -aK '( dport = :8080 or sport = :8080 )' | true
+  # Start Prometheus Port Forward
+  ( sleep 10 ; printf "\n\n" && while :; do kubectl port-forward -n par service/par-chart-par-manager-metrics 8080:8080 || sleep 5; done) &
 
   if [[ $ENV == "debug" ]]; then
   # Background log following for manager
     ( sleep 10 ; printf "\n\n" && while :; do kubectl logs -n par -l par.dev/manager="true" -f || sleep 5; done) &
     add_test_clients
-    ( sleep 10 ; printf "\n\n" && while :; do kubectl port-forward -n par service/par-chart-par-manager-metrics 8080:8080 || sleep 5; done) &
     kubectl port-forward -n par service/par-manager-debug 30002:9999
 
   elif [[ $ENV == "e2e" ]]; then
     ${LOCALBIN}/setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir ${LOCALBIN} -p path
-    ( sleep 10 ; printf "\n\n" && while :; do kubectl port-forward -n par service/par-chart-par-manager-metrics 8080:8080 || sleep 5; done) &
     ${LOCALBIN}/ginkgo -v -r --race --randomize-all --randomize-suites  ./tests/e2e/...
 
   elif [[ $ENV == "e2e-debug" ]]; then
     ${LOCALBIN}/setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir ${LOCALBIN} -p path
-    ( sleep 10 ; printf "\n\n" && while :; do kubectl port-forward -n par service/par-chart-par-manager-metrics 8080:8080 || sleep 5; done) &
     sleep infinity
   else
     # Assume make local deploy
     # Background log following for manager
     add_test_clients
     ( sleep 10 ; printf "\n\n" && while :; do kubectl logs -n par -l par.dev/manager="true" -f || sleep 5; done) &
-    kubectl port-forward -n par service/par-chart-par-manager-metrics 8080:8080
+    sleep infinity
   fi
 }
 

@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: par-manager-metrics
   labels:
-    par.dev/manager: "true"
+    par.dev/manager-metrics: "true"
 spec:
   selector:
     par.dev/manager: "true"

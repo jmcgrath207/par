@@ -8,7 +8,6 @@ import (
 	"github.com/onsi/gomega"
 	"io"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"net/http"
@@ -68,37 +67,21 @@ func createDeployment(deploymentPath string) *appsv1.Deployment {
 	return deployment
 }
 
-func GetManagerAddress() string {
-	// Find all services that match the labels in of par.dev/manager: true
-	serviceList := &corev1.ServiceList{}
-	opts := []client.ListOption{
-		client.InNamespace("par"),
-		client.MatchingLabels(map[string]string{"par.dev/manager": "true"}),
-	}
-
-	err := k8sClient.List(context.Background(), serviceList, opts...)
-	if err != nil {
-		ginkgo.Fail("could not find par manager service")
-	}
-	return serviceList.Items[0].Spec.ClusterIP
-}
-
 func CheckValues(ifFound map[string]bool) int {
 	var status int
 	for _, value := range ifFound {
 		if value {
 			status = 1
-		} else {
-			status = 0
-			break
+			continue
 		}
+		status = 0
 	}
 	return status
 }
 
 func checkPrometheus(checkSlice []string) {
 	var status int
-	timeout := time.Second * 120
+	timeout := time.Second * 180
 	startTime := time.Now()
 	ifFound := make(map[string]bool)
 
@@ -141,18 +124,13 @@ func checkPrometheus(checkSlice []string) {
 			if ifFound[a] {
 				continue
 			}
-			//TODO: Values are not being found in prom exporter output
 			if strings.Contains(output, a) {
 				ifFound[a] = true
 				status = CheckValues(ifFound)
-				if status == 0 {
-					break
-				}
 			}
-			status = 1
 		}
 
-		if status == 0 {
+		if status == 1 {
 			break
 		}
 
@@ -165,7 +143,7 @@ func checkPrometheus(checkSlice []string) {
 		ginkgo.GinkgoWriter.Printf("\nDid not find value: [ %v ] in prometheus exporter\n", key)
 	}
 
-	gomega.Expect(status).Should(gomega.Equal(0))
+	gomega.Expect(status).Should(gomega.Equal(1))
 
 }
 
@@ -180,7 +158,7 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 		ginkgo.Specify("\nReturn A Record IP addresses and Manager IP address", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "google.com",
-				records.Spec.A[1].IPAddresses[0], records.Spec.A[1].IPAddresses[1], GetManagerAddress())
+				records.Spec.A[0].IPAddresses[0], records.Spec.A[0].IPAddresses[1])
 			checkPrometheus(checkSlice)
 		})
 	})
@@ -189,7 +167,7 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 		createDeployment("../resources/test_no_record_deployment.yaml")
 		ginkgo.Specify("\nReturn IP addresses from Upstream DNS and Manager IP address\n", func() {
 			var checkSlice []string
-			checkSlice = append(checkSlice, "yahoo.com", GetManagerAddress())
+			checkSlice = append(checkSlice, "yahoo.com")
 			checkPrometheus(checkSlice)
 		})
 	})

@@ -57,18 +57,15 @@ func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 						log.FromContext(context.Background()).Info("Reconcile Update", "deployment", e.ObjectNew.GetName(), "controller", w.controllerName)
 						return true
 					}
-
 				}
 			}
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			log.FromContext(context.Background()).Info("Reconcile Update", "deployment", e.Object.GetName(), "controller", w.controllerName)
-			return true
+			return false
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
-			log.FromContext(context.Background()).Info("Reconcile Generic", "deployment", e.Object.GetName(), "controller", w.controllerName)
-			return true
+			return false
 		},
 	}
 }
@@ -141,6 +138,7 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 	}
 
 	for {
+		time.Sleep(1 * time.Second)
 		w.List(context.Background(), &podList, opts...)
 		count := 0
 		podCount := len(podList.Items)

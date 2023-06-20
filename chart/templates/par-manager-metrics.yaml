@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {{ include "chart.fullname" . }}-par-manager-metrics
   labels:
-    par.dev/manager: "true"
+    par.dev/manager-metrics: "true"
   {{- include "chart.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.parManagerMetrics.type }}
