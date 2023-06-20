@@ -82,20 +82,6 @@ func GetManagerAddress() string {
 	}
 	return serviceList.Items[0].Spec.ClusterIP
 }
-func GetProxyAddress() string {
-	serviceList := &corev1.ServiceList{}
-	opts := []client.ListOption{
-		client.InNamespace("par"),
-		client.MatchingLabels(map[string]string{"par.dev/proxy": "true"}),
-	}
-
-	err := k8sClient.List(context.Background(), serviceList, opts...)
-	if err != nil {
-		ginkgo.Fail("could not find par proxy service")
-	}
-	return serviceList.Items[0].Spec.ClusterIP
-
-}
 
 func CheckValues(ifFound map[string]bool) int {
 	var status int
@@ -188,25 +174,6 @@ func checkPrometheus(checkSlice []string) {
 // update a entry a Arecord ip address entry - working
 // remove a Arecord entry and make sure it's evicted from DNS cache - working
 var _ = ginkgo.Describe("Test Deployments\n", func() {
-
-	ginkgo.Context("A Record: wget with PROXY\n", func() {
-		createDeployment("../resources/test_wget_a_record_deployment.yaml")
-		ginkgo.Specify("\nReturn A Record IP addresses and Proxy IP address", func() {
-			var checkSlice []string
-			checkSlice = append(checkSlice, "google.com", GetProxyAddress(),
-				records.Spec.A[0].IPAddresses[0], records.Spec.A[0].IPAddresses[1])
-			checkPrometheus(checkSlice)
-		})
-	})
-
-	ginkgo.Context("No Record: wget from PROXY\n", func() {
-		createDeployment("../resources/test_wget_no_record_deployment.yaml")
-		ginkgo.Specify("\nReturn A Record Upstream IP addresses and Proxy IP address", func() {
-			var checkSlice []string
-			checkSlice = append(checkSlice, "yahoo.com", GetProxyAddress())
-			checkPrometheus(checkSlice)
-		})
-	})
 
 	ginkgo.Context("A Record: Lookup from Manager", func() {
 		createDeployment("../resources/test_a_record_deployment.yaml")

@@ -8,7 +8,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -154,11 +153,6 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 			if w.fowardType == "manager" {
 				storage.ClientId[pod.Status.PodIP] = w.id
 			}
-			if w.fowardType == "proxy" {
-				log.FromContext(context.Background()).Info("Setting DNS Server to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", storage.ProxyAddress)
-				storage.ProxyWaitGroup.Wait()
-				storage.ToProxySourceHostMap[pod.Status.PodIP] = net.ParseIP(storage.ProxyAddress)
-			}
 			count = count + 1
 		}
 		if count == replicas {
@@ -166,18 +160,3 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 		}
 	}
 }
-
-// TODO: Add Host Alias Feature later
-//func HostAlias(ctx context.Context, deployment appsv1.Deployment, aRecord dnsv1.Arecord) {
-//	// Update the deployment object's hostAliases field
-//	deployment.Spec.Template.Spec.HostAliases = []corev1.HostAlias{
-//		{
-//			IP:        aRecord.Spec.IPAddress,
-//			Hostnames: []string{aRecord.Spec.HostName},
-//		},
-//	}
-//
-//	if err := storage.ClientK8s.Update(ctx, &deployment); err != nil {
-//		panic(err)
-//	}
-//}

@@ -1,28 +1,22 @@
 package storage
 
 import (
-	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
 
 var (
-	recordMap            map[string]map[string]interface{}
-	ToProxySourceHostMap = map[string]net.IP{}
-	ClientK8s            client.Client
-	Mgr                  ctrl.Manager
-	ProxyAddress         string
-	ClientId             = map[string]string{}
-	ProxyWaitGroup       sync.WaitGroup
-	DNSWaitGroup         sync.WaitGroup
-	ProxyInit            int
+	recordMap    map[string]map[string]interface{}
+	ClientK8s    client.Client
+	Mgr          ctrl.Manager
+	ClientId     = map[string]string{}
+	DNSWaitGroup sync.WaitGroup
 )
 
 func Start(mgr ctrl.Manager) {
 	recordMap = make(map[string]map[string]interface{})
 	ClientK8s = mgr.GetClient()
-	ProxyWaitGroup.Add(1)
 	DNSWaitGroup.Add(1)
 	Mgr = mgr
 }
