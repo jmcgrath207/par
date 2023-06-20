@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "chart.fullname" . }}-controller-manager
+  name: par-manager
   labels:
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: par
@@ -11,7 +11,7 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "chart.fullname" . }}-controller-manager
+  name: par-manager
   labels:
     app.kubernetes.io/component: manager
     app.kubernetes.io/created-by: par
@@ -35,9 +35,7 @@ spec:
         kubectl.kubernetes.io/default-container: manager
     spec:
       containers:
-      - args:
-        - --leader-elect
-        command:
+      - command:
         - /manager
         env:
         - name: KUBERNETES_CLUSTER_DOMAIN
@@ -81,5 +79,5 @@ spec:
           runAsUser: 65532
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: {{ include "chart.fullname" . }}-controller-manager
+      serviceAccountName: par-manager
       terminationGracePeriodSeconds: 10

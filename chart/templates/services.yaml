@@ -1,0 +1,32 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: par-manager
+  labels:
+    par.dev/manager: "true"
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.parManager.type }}
+  selector:
+    par.dev/manager: "true"
+  {{- include "chart.selectorLabels" . | nindent 4 }}
+  ports:
+ {{- .Values.parManager.ports | toYaml | nindent 2 -}}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: par-manager-metrics
+  labels:
+    par.dev/manager-metrics: "true"
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.parManagerMetrics.type }}
+  selector:
+    par.dev/manager: "true"
+  {{- include "chart.selectorLabels" . | nindent 4 }}
+  ports:
+ {{- .Values.parManagerMetrics.ports | toYaml | nindent 2 -}}
+

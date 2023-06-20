@@ -160,28 +160,24 @@ $(ENVTEST): $(LOCALBIN)
 ### Custom Commands ###
 .EXPORT_ALL_VARIABLES:
 
-helmify:
-	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@latest
-
 ginkgo:
 	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.9.7
 
-helm: manifests generate fmt vet kustomize helmify
-	rm -r chart
-	$(KUSTOMIZE) build config/default | $(HELMIFY)
 
 create_kind:
 	./scripts/create_kind.sh
 
-deploy_debug: helm create_kind
+deploy: fmt vet kustomize create_kind
+
+deploy_debug: deploy
 	ENV='debug' ./scripts/deploy.sh
 
-deploy_e2e_debug: helm envtest ginkgo create_kind
+deploy_e2e_debug: deploy envtest ginkgo
 	ENV='e2e-debug' ./scripts/deploy.sh
 
-deploy_local: helm create_kind
+deploy_local: deploy
 	./scripts/deploy.sh
 
-deploy_e2e: helm envtest ginkgo create_kind
+deploy_e2e: deploy
 	ENV='e2e' ./scripts/deploy.sh
 
