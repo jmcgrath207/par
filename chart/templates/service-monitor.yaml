@@ -1,7 +1,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "chart.fullname" . }}-controller-manager-metrics-monitor
+  name: par-manager
   labels:
     app.kubernetes.io/component: metrics
     app.kubernetes.io/created-by: par

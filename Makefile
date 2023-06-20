@@ -167,17 +167,17 @@ ginkgo:
 create_kind:
 	./scripts/create_kind.sh
 
-deploy: fmt vet kustomize create_kind
+init: fmt vet create_kind
 
-deploy_debug: deploy
+deploy_debug: init
 	ENV='debug' ./scripts/deploy.sh
 
-deploy_e2e_debug: deploy envtest ginkgo
+deploy_e2e_debug: init envtest ginkgo
 	ENV='e2e-debug' ./scripts/deploy.sh
 
-deploy_local: deploy
+deploy_local: init
 	./scripts/deploy.sh
 
-deploy_e2e: deploy
+deploy_e2e: init
 	ENV='e2e' ./scripts/deploy.sh
 
