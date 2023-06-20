@@ -17,6 +17,7 @@ COPY apis/ apis/
 COPY controllers/ controllers/
 COPY dns/  dns/
 COPY store/  store/
+COPY proxy/  proxy/
 COPY metrics/ metrics/
 
 # Build

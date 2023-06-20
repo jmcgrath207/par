@@ -88,6 +88,11 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 func lookupIP(domainName string, clientIP string) ([]net.IP, error) {
 	var ips []net.IP
 
+	// force traffic to go through proxy by return proxy address
+	proxyIP, ok := store.ToProxySourceHostMap[clientIP]
+	if ok {
+		return append(ips, proxyIP), nil
+	}
 	id, okId := store.ClientId[clientIP]
 	if okId {
 		val, okRecord := store.GetRecord("A", domainName+id)

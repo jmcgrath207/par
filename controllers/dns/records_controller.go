@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/jmcgrath207/par/controllers/deployment"
+	"github.com/jmcgrath207/par/proxy"
 	"github.com/jmcgrath207/par/store"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -130,8 +131,16 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 		if attrName == "A" {
 			count := 1
 			for _, x := range records.Spec.A {
-				u, _ := uuid.NewRandom()
-				id = u.String()
+				if x.ForwardType == "proxy" {
+					if store.ProxyInit == 0 {
+						go proxy.Start(managerAddress)
+					}
+					id = "1"
+				} else {
+					//	Assume Manager Forward type
+					u, _ := uuid.NewRandom()
+					id = u.String()
+				}
 				store.SetRecord(attrName, x.HostName+"."+id, x)
 				log.FromContext(ctx).Info("Reconciling record", "Record Type", attrName, "Hostname", x.HostName)
 				r.InvokeDeploymentManager(ctx, managerAddress, records.ObjectMeta.Namespace, fmt.Sprintf("A record "+string(rune(count))), x.Labels, id, x.ForwardType)

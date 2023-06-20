@@ -138,7 +138,6 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 	}
 
 	for {
-		time.Sleep(1 * time.Second)
 		w.List(context.Background(), &podList, opts...)
 		count := 0
 		podCount := len(podList.Items)
@@ -150,8 +149,17 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 			if pod.Status.Phase != "Running" || pod.Spec.DNSConfig == nil {
 				break
 			}
+
 			if pod.Spec.DNSConfig.Nameservers[0] == w.dnsServerAddress {
-				store.ClientId[pod.Status.PodIP] = w.id
+
+				if w.fowardType == "manager" {
+					store.ClientId[pod.Status.PodIP] = w.id
+				}
+				if w.fowardType == "proxy" {
+					log.FromContext(context.Background()).Info("Setting DNS Server to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", storage.ProxyAddress)
+					store.ProxyWaitGroup.Wait()
+					store.ToProxySourceHostMap[pod.Status.PodIP] = net.ParseIP(storage.ProxyAddress)
+				}
 				count = count + 1
 			}
 		}
