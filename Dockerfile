@@ -16,7 +16,7 @@ COPY main.go main.go
 COPY apis/ apis/
 COPY controllers/ controllers/
 COPY dns/  dns/
-COPY storage/  storage/
+COPY store/  store/
 COPY metrics/ metrics/
 
 # Build

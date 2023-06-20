@@ -22,7 +22,7 @@ import (
 	"github.com/google/uuid"
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/jmcgrath207/par/controllers/deployment"
-	"github.com/jmcgrath207/par/storage"
+	"github.com/jmcgrath207/par/store"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,7 +53,7 @@ func (r *RecordsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if initReconcile == 0 {
 		r.SetManagerAddress(ctx)
 		r.BackFillRecords(ctx)
-		storage.DNSWaitGroup.Done()
+		store.DNSWaitGroup.Done()
 		initReconcile = 1
 		return ctrl.Result{}, nil
 	}
@@ -132,7 +132,7 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 			for _, x := range records.Spec.A {
 				u, _ := uuid.NewRandom()
 				id = u.String()
-				storage.SetRecord(attrName, x.HostName+"."+id, x)
+				store.SetRecord(attrName, x.HostName+"."+id, x)
 				log.FromContext(ctx).Info("Reconciling record", "Record Type", attrName, "Hostname", x.HostName)
 				r.InvokeDeploymentManager(ctx, managerAddress, records.ObjectMeta.Namespace, fmt.Sprintf("A record "+string(rune(count))), x.Labels, id, x.ForwardType)
 				count = count + 1
@@ -143,9 +143,9 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 }
 func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, dnsServerAddress string, namespace string, name string, labels map[string]string, id string, forwardType string) {
 	if err := (&deployment.DeploymentReconciler{
-		Client: storage.Mgr.GetClient(),
-		Scheme: storage.Mgr.GetScheme(),
-	}).SetupWithManager(storage.Mgr, dnsServerAddress, namespace, name, labels, id, forwardType); err != nil {
+		Client: store.Mgr.GetClient(),
+		Scheme: store.Mgr.GetScheme(),
+	}).SetupWithManager(store.Mgr, dnsServerAddress, namespace, name, labels, id, forwardType); err != nil {
 		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment"+name)
 		os.Exit(1)
 	}

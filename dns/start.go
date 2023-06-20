@@ -5,7 +5,7 @@ import (
 	"fmt"
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	"github.com/jmcgrath207/par/metrics"
-	"github.com/jmcgrath207/par/storage"
+	"github.com/jmcgrath207/par/store"
 	"github.com/miekg/dns"
 	"net"
 	"os"
@@ -17,7 +17,7 @@ func Start() {
 	server := &dns.Server{Addr: ":9000", Net: "udp"}
 	log.FromContext(context.Background()).Info("Starting DNS server", "port", "9000")
 	server.Handler = dns.HandlerFunc(handleDNSRequest)
-	storage.DNSWaitGroup.Wait()
+	store.DNSWaitGroup.Wait()
 	err := server.ListenAndServe()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start server: %s\n", err.Error())
@@ -88,9 +88,9 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 func lookupIP(domainName string, clientIP string) ([]net.IP, error) {
 	var ips []net.IP
 
-	id, okId := storage.ClientId[clientIP]
+	id, okId := store.ClientId[clientIP]
 	if okId {
-		val, okRecord := storage.GetRecord("A", domainName+id)
+		val, okRecord := store.GetRecord("A", domainName+id)
 		if okRecord {
 			aRecord := val.(dnsv1alpha1.ARecordsSpec)
 			for _, ip := range aRecord.IPAddresses {

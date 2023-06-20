@@ -22,7 +22,7 @@ import (
 
 	"github.com/jmcgrath207/par/dns"
 	"github.com/jmcgrath207/par/metrics"
-	"github.com/jmcgrath207/par/storage"
+	"github.com/jmcgrath207/par/store"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -103,7 +103,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	storage.Start(mgr)
+	store.Start(mgr)
 	metrics.Start()
 
 	go dns.Start()

@@ -3,7 +3,7 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"github.com/jmcgrath207/par/storage"
+	"github.com/jmcgrath207/par/store"
 	"github.com/patrickmn/go-cache"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -117,17 +117,19 @@ func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ct
 	log.FromContext(context.Background()).Info("updating deployment dns policy to point to service dnsIP of par manager",
 		"deployment", deploymentClone.Name, "dnsIP", w.dnsServerAddress)
 
-	err := storage.ClientK8s.Patch(context.TODO(), deploymentClone, client.MergeFrom(&deployment))
+	err := store.ClientK8s.Patch(context.TODO(), deploymentClone, client.MergeFrom(&deployment))
 	if err != nil {
 		log.FromContext(context.Background()).Error(err, "could not update deployment dns policy to point to service dnsIP of par manager",
 			"deployment", deploymentClone.Name, "dnsIP", w.dnsServerAddress)
 
 		return ctrl.Result{}, err
 	}
+
+	w.SetClientData(int(*deployment.Spec.Replicas), deployment.Spec.Template.Labels)
+
 	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager",
 		"deployment", deploymentClone.Name, "dnsIP", w.dnsServerAddress)
 
-	w.SetClientData(int(*deployment.Spec.Replicas), deployment.Spec.Template.Labels)
 	return ctrl.Result{}, nil
 }
 
@@ -147,13 +149,13 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 		}
 
 		for _, pod := range podList.Items {
-			if pod.Status.Phase != "Running" {
+			if pod.Status.Phase != "Running" || pod.Spec.DNSConfig == nil {
 				break
 			}
-			if w.fowardType == "manager" {
-				storage.ClientId[pod.Status.PodIP] = w.id
+			if pod.Spec.DNSConfig.Nameservers[0] == w.dnsServerAddress {
+				store.ClientId[pod.Status.PodIP] = w.id
+				count = count + 1
 			}
-			count = count + 1
 		}
 		if count == replicas {
 			break
