@@ -40,6 +40,10 @@ function main() {
 
   # kill dangling port forwards if found.
   sudo ss -aK '( dport = :8080 or sport = :8080 )' | true
+
+  # Deploy Proxy
+  helm install nginx oci://registry-1.docker.io/bitnamicharts/nginx -f tests/resources/test_proxy.yaml -n par
+
   # Start Prometheus Port Forward
   (
     sleep 10

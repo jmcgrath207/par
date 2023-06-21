@@ -1,10 +1,23 @@
 apiVersion: dns.par.dev/v1alpha1
 kind: Records
 metadata:
+  labels:
+    app.kubernetes.io/name: records
+    app.kubernetes.io/instance: records-sample
+    app.kubernetes.io/part-of: par
+    app.kubernetes.io/managed-by: par-helm
+    app.kubernetes.io/created-by: par
   name: records-sample
   namespace: default
 spec:
   a:
+  - labels:
+      app: example-proxy
+    hostname: google.com
+    ip-addresses:
+      - 1.1.1.1
+      - 1.1.1.2
+    forward-type: proxy
   - labels:
       app: example-manager
     hostname: google.com

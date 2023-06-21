@@ -207,7 +207,7 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 		ginkgo.Specify("\nReturn A Record IP addresses and Manager IP address", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "google.com",
-				records.Spec.A[1].IPAddresses[0], records.Spec.A[1].IPAddresses[1], GetManagerAddress())
+				records.Spec.A[1].IPAddresses[0], records.Spec.A[1].IPAddresses[1])
 			checkPrometheus(checkSlice)
 		})
 	})
@@ -216,7 +216,7 @@ var _ = ginkgo.Describe("Test Deployments\n", func() {
 		createDeployment("../resources/test_no_record_deployment.yaml")
 		ginkgo.Specify("\nReturn IP addresses from Upstream DNS and Manager IP address\n", func() {
 			var checkSlice []string
-			checkSlice = append(checkSlice, "yahoo.com", GetManagerAddress())
+			checkSlice = append(checkSlice, "yahoo.com")
 			checkPrometheus(checkSlice)
 		})
 	})

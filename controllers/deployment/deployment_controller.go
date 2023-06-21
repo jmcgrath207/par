@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -26,7 +27,7 @@ type DeploymentReconciler struct {
 	labels              map[string]string
 	id                  string
 	clientIDSet         int
-	fowardType          string
+	forwardType         string
 }
 
 func haveSameKeys(map1, map2 map[string]string) bool {
@@ -73,7 +74,7 @@ func (w *DeploymentReconciler) deploymentPredicate() predicate.Predicate {
 // SetupWithManager sets up the controller with the Manager.
 func (w *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager, dnsServerAddress string, namespace string, name string, labels map[string]string, id string, forwardType string) error {
 	w.deploymentNameCache = cache.New(30*time.Second, 1*time.Minute)
-	w.fowardType = forwardType
+	w.forwardType = forwardType
 	w.dnsServerAddress = dnsServerAddress
 	w.namespace = namespace
 	w.labels = labels
@@ -122,7 +123,7 @@ func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ct
 		return ctrl.Result{}, err
 	}
 
-	w.SetClientData(int(*deployment.Spec.Replicas), deployment.Spec.Template.Labels)
+	w.SetClientData(deployment.Spec.Template.Labels)
 
 	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager",
 		"deployment", deploymentClone.Name, "dnsIP", w.dnsServerAddress)
@@ -130,7 +131,7 @@ func (w *DeploymentReconciler) UpdateDnsClient(deployment appsv1.Deployment) (ct
 	return ctrl.Result{}, nil
 }
 
-func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]string) {
+func (w *DeploymentReconciler) SetClientData(labels map[string]string) {
 	var podList corev1.PodList
 	opts := []client.ListOption{
 		client.MatchingLabels(labels),
@@ -138,32 +139,28 @@ func (w *DeploymentReconciler) SetClientData(replicas int, labels map[string]str
 	}
 
 	for {
+		status := 0
 		w.List(context.Background(), &podList, opts...)
-		count := 0
-		podCount := len(podList.Items)
-		if podCount != replicas {
-			continue
-		}
 
 		for _, pod := range podList.Items {
 			if pod.Status.Phase != "Running" || pod.Spec.DNSConfig == nil {
-				break
+				continue
 			}
 
 			if pod.Spec.DNSConfig.Nameservers[0] == w.dnsServerAddress {
 
-				if w.fowardType == "manager" {
+				switch w.forwardType {
+				case "manager":
 					store.ClientId[pod.Status.PodIP] = w.id
-				}
-				if w.fowardType == "proxy" {
-					log.FromContext(context.Background()).Info("Setting DNS Server to return only proxy IP for source pod", "pod", pod.Name, "proxyIP", storage.ProxyAddress)
+				case "proxy":
 					store.ProxyWaitGroup.Wait()
-					store.ToProxySourceHostMap[pod.Status.PodIP] = net.ParseIP(storage.ProxyAddress)
+					store.ToProxySourceHostMap[pod.Status.PodIP] = net.ParseIP(store.ProxyAddress)
 				}
-				count = count + 1
+				status = 1
+
 			}
 		}
-		if count == replicas {
+		if status == 1 {
 			break
 		}
 	}
