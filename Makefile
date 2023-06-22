@@ -160,6 +160,15 @@ $(ENVTEST): $(LOCALBIN)
 ### Custom Commands ###
 .EXPORT_ALL_VARIABLES:
 
+## Location to install dependencies to
+GITROOT ?= $(shell pwd)
+
+helm-docs:
+	test -s $(LOCALBIN)/helm-docs || GOBIN=$(LOCALBIN) go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
+	$(LOCALBIN)/helm-docs  --template-files "${GITROOT}/chart/README.md.gotmpl"
+	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md" > "${GITROOT}/README.md"
+
+
 ginkgo:
 	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.9.7
 
@@ -168,6 +177,7 @@ create_kind:
 	./scripts/create_kind.sh
 
 init: fmt vet create_kind
+
 
 deploy_debug: init
 	ENV='debug' ./scripts/deploy.sh

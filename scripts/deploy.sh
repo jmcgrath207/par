@@ -24,8 +24,10 @@ function main() {
   docker build -f ${dockerfile} -t local.io/local/par:$image_tag .
   kind load docker-image -v 9 --name par-cluster --nodes par-cluster-worker local.io/local/par:$image_tag
   # Install Par Chart
-  helm upgrade --install par ./chart --set controllerManager.manager.image.repository="local.io/local/par" \
-    --set controllerManager.manager.image.tag="${image_tag}" \
+  helm upgrade --install par ./chart \
+    --set image.repository="local.io/local/par" \
+    --set image.tag="${image_tag}" \
+    --set metrics="true" \
     --create-namespace \
     --namespace par
   # Patch deploy so Kind image upload to work.

@@ -1,0 +1,43 @@
+{{ if .Values.metrics }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: par-manager
+  labels:
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/created-by: par
+    app.kubernetes.io/part-of: par
+    control-plane: controller-manager
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  endpoints:
+    - path: /metrics
+      port: metrics
+      scheme: http
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: par-manager-metrics
+  labels:
+    par.dev/manager-metrics: "true"
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    par.dev/manager: "true"
+  ports:
+    - name: metrics
+      port: 8080
+      protocol: TCP
+      targetPort: metrics
+
+ {{ end }}

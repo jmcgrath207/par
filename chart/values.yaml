@@ -1,28 +1,17 @@
-controllerManager:
-  manager:
-    image:
-      repository: local.io/library/par
-      tag: debug-latest
-    resources:
-      limits:
-        cpu: "1"
-        memory: 512Mi
-      requests:
-        cpu: 256m
-        memory: 128Mi
-  replicas: 1
 kubernetesClusterDomain: cluster.local
-parManager:
-  ports:
-  - name: dns
-    port: 53
-    protocol: UDP
-    targetPort: dns
-  type: ClusterIP
-parManagerMetrics:
-  ports:
-  - name: metrics
-    port: 8080
-    protocol: TCP
-    targetPort: metrics
-  type: ClusterIP
+
+metrics: false
+
+image:
+  repository: ghcr.io/jmcgrath207/par
+  tag: v0.1.0
+
+resources:
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+requests:
+  cpu: 256m
+  memory: 128Mi
+
