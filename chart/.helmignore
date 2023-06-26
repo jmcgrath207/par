@@ -22,3 +22,5 @@
 *.tmproj
 .vscode/
 README.md.gotmpl
+index.yaml
+*.tgz

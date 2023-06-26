@@ -188,6 +188,6 @@ deploy_e2e_debug: init envtest ginkgo
 deploy_local: init
 	./scripts/deploy.sh
 
-deploy_e2e: init
+deploy_e2e: init envtest ginkgo
 	ENV='e2e' ./scripts/deploy.sh
 
