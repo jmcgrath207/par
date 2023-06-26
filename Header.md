@@ -6,10 +6,13 @@
 
 Par is a DNS operator that allows you to control deployment DNS queries by labels without cluster administrative changes (ex. [Istio sidecar](https://istio.io/latest/docs/setup/platform-setup/prerequisites/#:~:text=Istio%20proxy%20sidecar%20container) )
 
-It accomplished this by changing the DNS policy of a deployment to point to the Operator IP address then associating a client ID to pod ip addresses. This allows you to control the scope DNS response to a deployment's label.
+It accomplishes this by changing the DNS policy of a deployment to point to the Operator DNS IP address then associating a client ID to pod ip addresses. This allows you to control the scope DNS response to a deployment's label.
 
 
-![plot](./asssets/par.drawio.png)
+<p align="center">
+  <img src="https://github.com/jmcgrath207/par/blob/main/asssets/par.drawio.png?raw=true" />
+</p>
+
 [Records Custom Resource Example](./tests/resources/test_dns_v1alpha1_records.yaml)
 
 
