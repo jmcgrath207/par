@@ -63,7 +63,7 @@ Then deploy your Records custom resource. ## Helm Install
 
 ```bash
 helm repo add par https://jmcgrath207.github.io/par/chart
-helm install par par/Par
+helm install par par/par
 ```
 
 ## Values

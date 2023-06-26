@@ -3,12 +3,12 @@ entries:
   Par:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2023-06-21T22:56:23.283437707-05:00"
+    created: "2023-06-25T22:04:58.099069658-05:00"
     description: Label Based DNS Operator
-    digest: e1d0bd099dc08d219cd2342de6f85a13db3ccd823fdca53490c48a2655693ad4
+    digest: 30dc6b1d382caa4ee9b59f4ee033664191b2efd8fcf55571da39a8577dd61f1d
     name: Par
     type: application
     urls:
     - Par-0.1.0.tgz
     version: 0.1.0
-generated: "2023-06-21T22:56:23.283191036-05:00"
+generated: "2023-06-25T22:04:58.09875907-05:00"
