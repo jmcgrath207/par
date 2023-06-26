@@ -165,8 +165,10 @@ GITROOT ?= $(shell pwd)
 
 helm-docs:
 	test -s $(LOCALBIN)/helm-docs || GOBIN=$(LOCALBIN) go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
-	$(LOCALBIN)/helm-docs  --template-files "${GITROOT}/chart/README.md.gotmpl"
-	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md" > "${GITROOT}/README.md"
+	$(LOCALBIN)/helm-docs  --template-files "${GITROOT}/chart/README.md.gotmpl" --dry-run > "${GITROOT}/chart/README.md.temp"
+	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md.temp" > "${GITROOT}/README.md"
+	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md.temp" > "${GITROOT}/chart/README.md"
+	rm  "${GITROOT}/chart/README.md.temp"
 
 
 ginkgo:

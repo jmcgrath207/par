@@ -25,3 +25,4 @@ Dockerfile.cross
 *.swo
 *~
 *.tgz
+!chart/Par-*.tgz
