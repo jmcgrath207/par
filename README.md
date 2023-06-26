@@ -73,8 +73,8 @@ helm install par par/Par
 | metrics | bool | `false` |  |
 | requests.cpu | string | `"256m"` |  |
 | requests.memory | string | `"128Mi"` |  |
-| resources.limits.cpu | string | `"1"` |  |
-| resources.limits.memory | string | `"512Mi"` |  |
+| resources.limits.cpu | string | `"500m"` |  |
+| resources.limits.memory | string | `"256Mi"` |  |
 
 ## Contribute
 
