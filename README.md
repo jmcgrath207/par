@@ -10,6 +10,7 @@ It accomplished this by changing the DNS policy of a deployment to point to the 
 
 
 ![plot](./asssets/par.drawio.png)
+
 [Records Custom Resource Example](./tests/resources/test_dns_v1alpha1_records.yaml)
 
 
