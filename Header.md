@@ -20,13 +20,13 @@ It accomplishes this by changing the DNS policy of a deployment to point to the 
 ### Forward Type
 
 ### Manager
-This type will update deployment pod template DNS configuration to the Operator's IP address and all DNS queries will be forwarded to the Operator. Once a DNS request is received, it will check the Records Custom Resource if a entry exist. If no entry is found it will default to the cluster's DNS.
+This type will update a deployment's pod template DNS configuration to the Operator's IP address. From now all DNS queries will be forwarded to the Operator. Once a DNS request is received, it will check the Records Custom Resource if an entry exist. If no entry is found it will default to the cluster's DNS.
 
 Only the Records Custom Resource is needed for this configuration.
 
 ### Proxy
 
-The same initial setup happens as the Manager forward type, expect for that any DNS A Record Query will always return the proxy IP address. This will then force pod traffic through the proxy and from there the proxy will preform a DNS lookup from the Operator. In theory, any forward proxy can be used with this method.
+The same initial setup happens as the Manager forward type, expect for that any DNS A Record Query will always return the proxy IP address. This will then force pod traffic through the proxy and from there the proxy will preform a DNS lookup from the Operator. In theory, any forward proxy can be used with this method if your able to implement the steps below.
 
 
 #### Setup
@@ -42,7 +42,7 @@ and for the proxy configmap this label.
   par.dev/proxy-config: "true"
 ```
 
-Inside the configmap will you need to add a go template tag `.dnsResolver` with the backticks like below. This is so the Operator can render the Operator address in the configmap and forward DNS queries to the Operator.
+Inside the configmap will you need to add a go template tag `.dnsResolver` with the backticks like below. This is so the Operator can render the Operator DNA address in the configmap and forward DNS queries to the Operator.
 
 ```yaml
 serverBlock: |-
