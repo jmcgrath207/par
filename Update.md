@@ -8,8 +8,9 @@ REF: https://leeyoongti.medium.com/helm-in-kubernetes-part-4-publish-helm-chart-
 version='v0.1.0'
 docker login ghcr.io --username github-account
 docker build -t ghcr.io/jmcgrath207/par:$version .
+docker build -t ghcr.io/jmcgrath207/par:latest .
 docker push ghcr.io/jmcgrath207/par:$version 
-helm package chart
-helm repo index --merge index.yaml .
-
+docker push ghcr.io/jmcgrath207/par:latest 
+helm package chart --destination chart
+helm repo index --merge index.yaml chart/.
 ```
