@@ -18,7 +18,9 @@ package main
 
 import (
 	"flag"
+	appsv1 "k8s.io/api/apps/v1"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 
 	"github.com/jmcgrath207/par/dns"
 	"github.com/jmcgrath207/par/metrics"
@@ -37,8 +39,10 @@ import (
 
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	dnscontrollers "github.com/jmcgrath207/par/controllers/dns"
-	//+kubebuilder:scaffold:imports
+	"github.com/jmcgrath207/par/webhook"
 )
+
+//+kubebuilder:scaffold:imports
 
 var (
 	scheme   = runtime.NewScheme()
@@ -61,6 +65,7 @@ func init() {
 //+kubebuilder:rbac:groups="",resources=configmaps;secrets,verbs=get;list;watch;update;patch
 /////////+kubebuilder:rbac:groups="",namespace=xxxx,resources=configmaps;secrets,verbs=get;list;watch;update;patch
 //
+//+kubebuilder:webhook:path=/mutate-v1-deployment,mutating=true,failurePolicy=fail,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=par-deployment-webhook,admissionReviewVersions=v1,sideEffects=None
 
 func main() {
 	var metricsAddr string
@@ -107,6 +112,14 @@ func main() {
 	metrics.Start()
 
 	go dns.Start()
+
+	if err := builder.WebhookManagedBy(mgr).
+		For(&appsv1.Deployment{}).
+		WithDefaulter(&webhook.DeploymentUpdate{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Deployment")
+		os.Exit(1)
+	}
 
 	if err = (&dnscontrollers.RecordsReconciler{
 		Client: mgr.GetClient(),

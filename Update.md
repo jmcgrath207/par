@@ -14,3 +14,8 @@ docker push ghcr.io/jmcgrath207/par:latest
 helm package chart --destination chart
 helm repo index --merge index.yaml chart/.
 ```
+
+## Create webhook mutating
+REF: https://book.kubebuilder.io/cronjob-tutorial/webhook-implementation.html
+REF: https://book.kubebuilder.io/reference/webhook-for-core-types
+
