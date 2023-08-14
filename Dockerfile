@@ -19,6 +19,7 @@ COPY dns/  dns/
 COPY store/  store/
 COPY proxy/  proxy/
 COPY metrics/ metrics/
+COPY webhook/ webhook/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command

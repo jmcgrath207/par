@@ -25,6 +25,7 @@ import (
 	"github.com/jmcgrath207/par/dns"
 	"github.com/jmcgrath207/par/metrics"
 	"github.com/jmcgrath207/par/store"
+	"github.com/jmcgrath207/par/webhook"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -39,7 +40,6 @@ import (
 
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
 	dnscontrollers "github.com/jmcgrath207/par/controllers/dns"
-	"github.com/jmcgrath207/par/webhook"
 )
 
 //+kubebuilder:scaffold:imports
@@ -65,7 +65,7 @@ func init() {
 //+kubebuilder:rbac:groups="",resources=configmaps;secrets,verbs=get;list;watch;update;patch
 /////////+kubebuilder:rbac:groups="",namespace=xxxx,resources=configmaps;secrets,verbs=get;list;watch;update;patch
 //
-//+kubebuilder:webhook:path=/mutate-v1-deployment,mutating=true,failurePolicy=fail,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=par-deployment-webhook,admissionReviewVersions=v1,sideEffects=None
+//+kubebuilder:webhook:path=/mutate-v1-deployment,mutating=true,failurePolicy=fail,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=par-deployment-webhook.par.dev,admissionReviewVersions=v1,sideEffects=None
 
 func main() {
 	var metricsAddr string

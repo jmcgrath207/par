@@ -13,7 +13,7 @@ webhooks:
       namespace: system
       path: /mutate-v1-deployment
   failurePolicy: Fail
-  name: par-deployment-webhook
+  name: par-deployment-webhook.par.dev
   rules:
   - apiGroups:
     - apps

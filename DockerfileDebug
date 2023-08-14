@@ -19,6 +19,7 @@ COPY dns/  dns/
 COPY store/  store/
 COPY proxy/  proxy/
 COPY metrics/ metrics/
+COPY webhook/ webhook/
 
 RUN go build -gcflags="all=-N -l"  -o /manager main.go
 
