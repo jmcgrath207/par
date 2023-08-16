@@ -27,17 +27,15 @@ function main() {
   helm upgrade --install par ./chart \
     --set image.repository="local.io/local/par" \
     --set image.tag="${image_tag}" \
+    --set image.imagePullPolicy="Never" \
     --set metrics="true" \
     --create-namespace \
-    --namespace par
+    --namespace par --wait
   # Patch deploy so Kind image upload to work.
   if [[ $ENV == "debug" ]]; then
     # Disable for Debugging of Delve.
     kubectl patch deployments.apps -n par par-manager -p \
-      '{ "spec": {"template": { "spec":{"securityContext": null, "containers":[{"name":"manager", "imagePullPolicy": "Never", "livenessProbe": null, "readinessProbe": null, "securityContext": null, "command": null, "args": null  }]}}}}'
-  else
-    kubectl patch deployments.apps -n par par-manager -p \
-      '{ "spec": {"template": { "spec":{"containers":[{"name":"manager", "imagePullPolicy": "Never" }]}}}}'
+      '{ "spec": {"template": { "spec":{"securityContext": null, "containers":[{"name":"manager", "livenessProbe": null, "readinessProbe": null, "securityContext": null, "command": null, "args": null  }]}}}}'
   fi
 
   # kill dangling port forwards if found.

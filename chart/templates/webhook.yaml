@@ -1,8 +1,15 @@
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-server-cert
+  labels:
+  {{- include "chart.labels" . | nindent 4 }}
+---
+apiVersion: v1
 kind: Service
 metadata:
-  name: par-manager
+  name: par-manager-webhook
   labels:
     par.dev/manager: "true"
   {{- include "chart.labels" . | nindent 4 }}
@@ -22,14 +29,17 @@ kind: MutatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: par-mutating-webhook
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "5"
 webhooks:
   - admissionReviewVersions:
       - v1
     clientConfig:
       service:
-        name: par-webhook-service
-        namespace: system
-        path: /mutate-v1-deployment
+        name: par-manager-webhook
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-apps-v1-deployment
     failurePolicy: Fail
     name: par-deployment-webhook.par.dev
     rules:

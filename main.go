@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
-	dnscontrollers "github.com/jmcgrath207/par/controllers/dns"
+	//dnscontrollers "github.com/jmcgrath207/par/controllers/dns"
 )
 
 //+kubebuilder:scaffold:imports
@@ -113,6 +113,7 @@ func main() {
 
 	go dns.Start()
 
+	webhook.EnableCertRotation(mgr)
 	if err := builder.WebhookManagedBy(mgr).
 		For(&appsv1.Deployment{}).
 		WithDefaulter(&webhook.DeploymentUpdate{}).
@@ -121,13 +122,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&dnscontrollers.RecordsReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Records")
-		os.Exit(1)
-	}
+	//if err = (&dnscontrollers.RecordsReconciler{
+	//	Client: mgr.GetClient(),
+	//	Scheme: mgr.GetScheme(),
+	//}).SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create controller", "controller", "Records")
+	//	os.Exit(1)
+	//}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

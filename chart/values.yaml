@@ -4,6 +4,7 @@ metrics: false
 
 image:
   repository: ghcr.io/jmcgrath207/par
+  imagePullPolicy: Always
   tag: v0.1.0
 
 resources:

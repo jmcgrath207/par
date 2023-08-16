@@ -3,9 +3,13 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"github.com/open-policy-agent/cert-controller/pkg/rotator"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"os"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type DeploymentUpdate struct{}
@@ -23,5 +27,38 @@ func (d *DeploymentUpdate) Default(ctx context.Context, obj runtime.Object) erro
 	deployment.Annotations["example-mutating-admission-webhook"] = "foo"
 	log.Info("Annotated Pod")
 
+	return nil
+}
+
+// Based on this code snippet
+// https://github.com/metallb/metallb/blob/main/internal/k8s/webhook.go#L18
+func EnableCertRotation(mgr manager.Manager) error {
+	log := logf.FromContext(context.Background())
+	webhooks := []rotator.WebhookInfo{
+		{
+			Name: "par-mutating-webhook",
+			Type: rotator.Validating,
+		},
+	}
+
+	namespace, _ := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+
+	log.Info("staring cert rotation")
+	err := rotator.AddRotator(mgr, &rotator.CertRotator{
+		SecretKey: types.NamespacedName{
+			Namespace: string(namespace),
+			Name:      "webhook-server-cert",
+		},
+		CertDir:        "/tmp/k8s-webhook-server/serving-certs",
+		CAName:         "cert",
+		CAOrganization: "par",
+		DNSName:        fmt.Sprintf("%s.%s.svc", "par-manager-webhook", string(namespace)),
+		Webhooks:       webhooks,
+	})
+	if err != nil {
+		log.Error(err, "cert rotation failed")
+		return err
+	}
+	log.Info("successful cert rotation")
 	return nil
 }
