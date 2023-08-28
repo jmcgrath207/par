@@ -109,11 +109,12 @@ func main() {
 	}
 
 	store.Start(mgr)
+	webhook.EnableCertRotation(mgr)
 	metrics.Start()
-
 	go dns.Start()
 
-	webhook.EnableCertRotation(mgr)
+	// TODO: Something is wrong here that make all the controllers crash.
+	// Need to check out the metallb implementation.
 	if err := builder.WebhookManagedBy(mgr).
 		For(&appsv1.Deployment{}).
 		WithDefaulter(&webhook.DeploymentUpdate{}).

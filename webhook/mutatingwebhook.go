@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"github.com/jmcgrath207/par/store"
 	"github.com/open-policy-agent/cert-controller/pkg/rotator"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,6 +16,7 @@ import (
 type DeploymentUpdate struct{}
 
 func (d *DeploymentUpdate) Default(ctx context.Context, obj runtime.Object) error {
+	<-store.WebHookCertRdy
 	log := logf.FromContext(ctx)
 	deployment, ok := obj.(*appsv1.Deployment)
 	if !ok {
@@ -37,28 +39,28 @@ func EnableCertRotation(mgr manager.Manager) error {
 	webhooks := []rotator.WebhookInfo{
 		{
 			Name: "par-mutating-webhook",
-			Type: rotator.Validating,
+			Type: rotator.Mutating,
 		},
 	}
 
 	namespace, _ := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 
-	log.Info("staring cert rotation")
 	err := rotator.AddRotator(mgr, &rotator.CertRotator{
 		SecretKey: types.NamespacedName{
 			Namespace: string(namespace),
 			Name:      "webhook-server-cert",
 		},
-		CertDir:        "/tmp/k8s-webhook-server/serving-certs",
-		CAName:         "cert",
-		CAOrganization: "par",
-		DNSName:        fmt.Sprintf("%s.%s.svc", "par-manager-webhook", string(namespace)),
-		Webhooks:       webhooks,
+		CertDir:                "/certs",
+		CAName:                 "par",
+		CAOrganization:         "par",
+		DNSName:                fmt.Sprintf("%s.%s.svc", "par-manager-webhook", string(namespace)),
+		Webhooks:               webhooks,
+		IsReady:                store.WebHookCertRdy,
+		RestartOnSecretRefresh: true,
 	})
 	if err != nil {
 		log.Error(err, "cert rotation failed")
 		return err
 	}
-	log.Info("successful cert rotation")
 	return nil
 }

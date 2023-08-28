@@ -30,7 +30,7 @@ function main() {
     --set image.imagePullPolicy="Never" \
     --set metrics="true" \
     --create-namespace \
-    --namespace par --wait
+    --namespace par
   # Patch deploy so Kind image upload to work.
   if [[ $ENV == "debug" ]]; then
     # Disable for Debugging of Delve.
