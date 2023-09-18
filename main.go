@@ -18,9 +18,7 @@ package main
 
 import (
 	"flag"
-	appsv1 "k8s.io/api/apps/v1"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 
 	"github.com/jmcgrath207/par/dns"
 	"github.com/jmcgrath207/par/metrics"
@@ -85,9 +83,9 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		//MetricsBindAddress:     metricsAddr,
+		//Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "3e77a087.par.dev",
@@ -109,19 +107,12 @@ func main() {
 	}
 
 	store.Start(mgr)
-	webhook.EnableCertRotation(mgr)
+	webhook.Start(mgr)
 	metrics.Start()
 	go dns.Start()
 
 	// TODO: Something is wrong here that make all the controllers crash.
-	// Need to check out the metallb implementation.
-	if err := builder.WebhookManagedBy(mgr).
-		For(&appsv1.Deployment{}).
-		WithDefaulter(&webhook.DeploymentUpdate{}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Deployment")
-		os.Exit(1)
-	}
+	// Need to check out the metallb implementation. This works when commented out.
 
 	//if err = (&dnscontrollers.RecordsReconciler{
 	//	Client: mgr.GetClient(),

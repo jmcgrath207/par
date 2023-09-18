@@ -17,7 +17,6 @@ var (
 	ProxyWaitGroup       sync.WaitGroup
 	DNSWaitGroup         sync.WaitGroup
 	ProxyInit            int
-	WebHookCertRdy       chan struct{}
 )
 
 func Start(mgr ctrl.Manager) {
@@ -25,7 +24,6 @@ func Start(mgr ctrl.Manager) {
 	ClientK8s = mgr.GetClient()
 	ProxyWaitGroup.Add(1)
 	DNSWaitGroup.Add(1)
-	WebHookCertRdy = make(chan struct{})
 	Mgr = mgr
 }
 

@@ -69,11 +69,12 @@ function main() {
   else
     # Assume make local deploy
     # Background log following for manager
-    add_test_clients
     (
       sleep 10
       printf "\n\n" && while :; do kubectl logs -n par -l par.dev/manager="true" -f || sleep 5; done
     ) &
+    sleep 10
+    add_test_clients
     sleep infinity
   fi
 }

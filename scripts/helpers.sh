@@ -19,6 +19,9 @@ function trap_func() {
 
 
 function add_test_clients() {
+  while [ "$(kubectl get pods -n par -l par.dev/manager=true -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
+    echo  "waiting for manager pod to start. Sleep 10" && sleep 10
+done
   kubectl apply -f tests/resources/test_dns_v1alpha1_records.yaml
 	kubectl apply -f tests/resources/test_a_record_deployment.yaml
 	kubectl apply -f tests/resources/test_no_record_deployment.yaml

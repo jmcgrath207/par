@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: webhook-server-cert
+  name: webhook-server-certs
   labels:
   {{- include "chart.labels" . | nindent 4 }}
 ---
