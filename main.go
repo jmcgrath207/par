@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
-	//dnscontrollers "github.com/jmcgrath207/par/controllers/dns"
+	dnscontrollers "github.com/jmcgrath207/par/controllers/dns"
 )
 
 //+kubebuilder:scaffold:imports
@@ -111,17 +111,14 @@ func main() {
 	metrics.Start()
 	go dns.Start()
 
-	// TODO: Something is wrong here that make all the controllers crash.
-	// Need to check out the metallb implementation. This works when commented out.
-
-	//if err = (&dnscontrollers.RecordsReconciler{
-	//	Client: mgr.GetClient(),
-	//	Scheme: mgr.GetScheme(),
-	//}).SetupWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create controller", "controller", "Records")
-	//	os.Exit(1)
-	//}
-	//+kubebuilder:scaffold:builder
+	if err = (&dnscontrollers.RecordsReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Records")
+		os.Exit(1)
+	}
+	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

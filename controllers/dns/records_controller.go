@@ -18,11 +18,10 @@ package dns
 
 import (
 	"context"
-	"fmt"
 	"github.com/google/uuid"
 	dnsv1alpha1 "github.com/jmcgrath207/par/apis/dns/v1alpha1"
-	"github.com/jmcgrath207/par/controllers/deployment"
 	"github.com/jmcgrath207/par/proxy"
+	"github.com/jmcgrath207/par/resources"
 	"github.com/jmcgrath207/par/store"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -143,19 +142,13 @@ func (r *RecordsReconciler) UpdateRecords(ctx context.Context, records dnsv1alph
 				}
 				store.SetRecord(attrName, x.HostName+"."+id, x)
 				log.FromContext(ctx).Info("Reconciling record", "Record Type", attrName, "Hostname", x.HostName)
-				r.InvokeDeploymentManager(ctx, managerAddress, records.ObjectMeta.Namespace, fmt.Sprintf("A record "+string(rune(count))), x.Labels, id, x.ForwardType)
+				a := resources.ResourcePayload{Namespace: records.ObjectMeta.Namespace, Id: id,
+					DnsServerAddress: managerAddress, Labels: x.Labels, ForwardType: x.ForwardType}
+				resources.Observe(a)
+				resources.UpdateByNSLabels(records.ObjectMeta.Namespace, x.Labels)
 				count = count + 1
 			}
 		}
 	}
 
-}
-func (r *RecordsReconciler) InvokeDeploymentManager(ctx context.Context, dnsServerAddress string, namespace string, name string, labels map[string]string, id string, forwardType string) {
-	if err := (&deployment.DeploymentReconciler{
-		Client: store.Mgr.GetClient(),
-		Scheme: store.Mgr.GetScheme(),
-	}).SetupWithManager(store.Mgr, dnsServerAddress, namespace, name, labels, id, forwardType); err != nil {
-		log.FromContext(ctx).Error(err, "unable to create controller", "controller", "Deployment"+name)
-		os.Exit(1)
-	}
 }

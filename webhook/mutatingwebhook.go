@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"github.com/jmcgrath207/par/resources"
 	"github.com/open-policy-agent/cert-controller/pkg/rotator"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,18 +22,8 @@ type DeploymentUpdate struct{}
 // TODO: Example works here. Need to figured how to make debugging work.
 // Might be due to test clients starting to quick. Could break it out into it's own make command.
 func (d *DeploymentUpdate) Default(ctx context.Context, obj runtime.Object) error {
-	log := logf.FromContext(ctx)
-	deployment, ok := obj.(*appsv1.Deployment)
-	if !ok {
-		return fmt.Errorf("expected a Pod but got a %T", obj)
-	}
-
-	if deployment.Annotations == nil {
-		deployment.Annotations = map[string]string{}
-	}
-	deployment.Annotations["example-mutating-admission-webhook"] = "foo"
-	log.Info("Annotated Pod")
-
+	deployment, _ := obj.(*appsv1.Deployment)
+	resources.Update(*deployment)
 	return nil
 }
 
