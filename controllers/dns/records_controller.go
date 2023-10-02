@@ -34,7 +34,8 @@ import (
 )
 
 var managerAddress string
-var initReconcile int
+
+//var initReconcile int
 
 // RecordsReconciler reconciles a Records object
 type RecordsReconciler struct {
@@ -48,15 +49,13 @@ type RecordsReconciler struct {
 
 func (r *RecordsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
-	// Needs to happen here since the Read Cache of the client vaild until Reconcile is Invoked.
-	// https://sdk.operatorframework.io/docs/building-operators/golang/references/client/#default-client
-	if initReconcile == 0 {
-		r.SetManagerAddress(ctx)
-		r.BackFillRecords(ctx)
-		store.DNSWaitGroup.Done()
-		initReconcile = 1
-		return ctrl.Result{}, nil
-	}
+	//if initReconcile == 0 {
+	//	r.SetManagerAddress(ctx)
+	//	r.BackFillRecords(ctx)
+	//	store.DNSWaitGroup.Done()
+	//	initReconcile = 1
+	//	return ctrl.Result{}, nil
+	//}
 	var records dnsv1alpha1.Records
 
 	// For New Records Types

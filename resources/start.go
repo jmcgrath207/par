@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/jmcgrath207/par/store"
+	"github.com/patrickmn/go-cache"
 	"hash/fnv"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -11,10 +12,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
+	"time"
 )
 
 var namespaceLabels map[string][]map[string]string
 var hashLabels map[string]ResourcePayload
+var resourceObjectCache *cache.Cache
 
 type ResourcePayload struct {
 	Namespace        string
@@ -24,10 +27,11 @@ type ResourcePayload struct {
 	ForwardType      string
 }
 
-//func Start() {
-//	namespaceLabels = make(map[string][]map[string]string)
-//	hashLabels = make(map[string]ResourcePayload)
-//}
+func Start() {
+	namespaceLabels = make(map[string][]map[string]string)
+	hashLabels = make(map[string]ResourcePayload)
+	resourceObjectCache = cache.New(1*time.Minute, 1*time.Minute)
+}
 
 func Update(deployment appsv1.Deployment) {
 	// Only update deployments that have been observed by the records controller.
@@ -35,10 +39,16 @@ func Update(deployment appsv1.Deployment) {
 	if !ok {
 		return
 	}
+
 	for _, label := range labels {
 		if haveSameKeys(label, deployment.Labels) {
 			a := getHashLabels(label)
+			if _, found := resourceObjectCache.Get(a); found {
+				return
+			}
+			resourceObjectCache.Set(a, true, cache.DefaultExpiration)
 			UpdateDnsClient(deployment, hashLabels[a])
+
 		}
 	}
 }
@@ -84,34 +94,21 @@ func Observe(resourcePayload ResourcePayload) {
 
 func UpdateDnsClient(deployment appsv1.Deployment, payload ResourcePayload) error {
 
-	deploymentClone := deployment.DeepCopy()
-
 	// Add a new DNS configuration to the deployment's pod template with the updated IP address.
-	deploymentClone.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
+	deployment.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
 		Nameservers: []string{payload.DnsServerAddress},
 	}
 
-	deploymentClone.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
+	deployment.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
 	log.FromContext(context.Background()).Info("updating deployment dns policy to point to service dnsIP of par manager",
-		"deployment", deploymentClone.Name, "dnsIP", payload.DnsServerAddress)
+		"deployment", deployment.Name, "dnsIP", payload.DnsServerAddress)
 
-	err := store.ClientK8s.Patch(context.TODO(), deploymentClone, client.MergeFrom(&deployment))
-	if err != nil {
-		log.FromContext(context.Background()).Error(err, "could not update deployment dns policy to point to service dnsIP of par manager",
-			"deployment", deploymentClone.Name, "dnsIP", payload.DnsServerAddress)
-
-		return err
-	}
-
-	setClientData(payload)
-
-	log.FromContext(context.Background()).Info("updated deployment dns policy to point to service IP of par manager",
-		"deployment", deploymentClone.Name, "dnsIP", payload.DnsServerAddress)
-
+	go setClientData(payload)
 	return nil
 }
 
 func setClientData(payload ResourcePayload) {
+	// Wait for a Deployments pods to come up and collect their IP address for DNS forwarding decisions.
 	var podList corev1.PodList
 	opts := []client.ListOption{
 		client.MatchingLabels(payload.Labels),
@@ -144,4 +141,5 @@ func setClientData(payload ResourcePayload) {
 			break
 		}
 	}
+	store.DNSWaitGroup.Done()
 }

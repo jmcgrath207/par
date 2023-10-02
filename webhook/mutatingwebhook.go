@@ -19,8 +19,6 @@ var _ webhook.CustomDefaulter = &DeploymentUpdate{}
 
 type DeploymentUpdate struct{}
 
-// TODO: Example works here. Need to figured how to make debugging work.
-// Might be due to test clients starting to quick. Could break it out into it's own make command.
 func (d *DeploymentUpdate) Default(ctx context.Context, obj runtime.Object) error {
 	deployment, _ := obj.(*appsv1.Deployment)
 	resources.Update(*deployment)

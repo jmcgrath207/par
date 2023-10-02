@@ -22,6 +22,7 @@ import (
 
 	"github.com/jmcgrath207/par/dns"
 	"github.com/jmcgrath207/par/metrics"
+	"github.com/jmcgrath207/par/resources"
 	"github.com/jmcgrath207/par/store"
 	"github.com/jmcgrath207/par/webhook"
 
@@ -110,6 +111,7 @@ func main() {
 	webhook.Start(mgr)
 	metrics.Start()
 	go dns.Start()
+	resources.Start()
 
 	if err = (&dnscontrollers.RecordsReconciler{
 		Client: mgr.GetClient(),
